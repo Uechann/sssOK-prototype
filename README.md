@@ -1,5 +1,8 @@
 # 쏙 sssOK — 프로토타입
 
+**배포:** https://sssok-prototype.vercel.app
+**레포:** https://github.com/Uechann/sssOK-prototype (private)
+
 링크 하나로 사진·영상을 모으고, 정해진 시간이 지나면 쏙 사라지는 임시 공유방.
 피그마 와이어프레임(`wireframes/`)의 화면들을 그대로 매칭해 구현한 **동작하는 프로토타입**입니다.
 
