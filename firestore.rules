@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// sssOK Firestore 보안 규칙
+// share-drop과 같은 Firebase 프로젝트를 재사용하므로, share-drop의 규칙(rooms/*)은
+// 그대로 두고 sssok_rooms/* 규칙만 새로 추가했습니다.
+//
+// 적용 방법: Firebase 콘솔 → Firestore Database → 규칙 탭에 이 파일 전체를 붙여넣고 게시
+// (share-drop/firestore.rules 를 이미 붙여넣은 상태라면, 아래 sssok_rooms 블록만
+//  기존 규칙의 마지막 catch-all match 앞에 추가해도 됩니다)
+//
+// sssOK는 로그인 없이 "코드/링크를 아는 사람은 누구나" 들어오는 모델이라
+// 소유권을 서버에서 강제하지 않고 room 코드 하나로만 접근을 스코프합니다.
+// 실제 서비스라면 share-drop처럼 익명 인증 uid 기반 규칙으로 강화하세요.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── share-drop 기존 규칙 (그대로 유지) ──────────────
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomData(roomId) {
+      return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+    }
+
+    function notExpired(data) {
+      return !('expiresAt' in data) || data.expiresAt == null || request.time < data.expiresAt;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 100;
+      allow update: if signedIn() && notExpired(resource.data) && (
+        resource.data.ownerId == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['folders'])
+      );
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+
+      match /images/{imageId} {
+        allow read: if true;
+        allow create: if signedIn()
+          && request.resource.data.uploaderId == request.auth.uid
+          && notExpired(roomData(roomId))
+          && (roomData(roomId).permission == 'all' || roomData(roomId).ownerId == request.auth.uid)
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.size() < 1048576;
+        allow update: if signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['folder']);
+        allow delete: if signedIn() && (
+          resource.data.uploaderId == request.auth.uid
+          || roomData(roomId).ownerId == request.auth.uid
+        );
+      }
+    }
+
+    // ── sssOK 규칙 (새로 추가) ──────────────────────────
+    // 8자리 방 코드를 문서 ID로 씁니다. 코드를 아는 사람은 읽고 쓸 수 있습니다.
+    match /sssok_rooms/{code} {
+      allow read: if true;
+      allow write: if true;
+
+      match /{sub=**} {
+        allow read: if true;
+        allow write: if true;
+      }
+    }
+
+    // 그 외 모든 경로는 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

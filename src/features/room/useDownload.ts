@@ -1,0 +1,139 @@
+import { useCallback, useRef, useState } from 'react';
+import JSZip from 'jszip';
+import type { Photo, TransferState } from '../../types';
+
+export type DownloadMode = 'each' | 'zip';
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+async function toBlob(photo: Photo): Promise<Blob> {
+  const response = await fetch(photo.src);
+  return response.blob();
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename; // 원본 파일명 유지
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/** 파일명이 겹치면 (1), (2) … 를 붙여 원본 이름을 최대한 지킵니다 */
+function uniqueName(taken: Set<string>, name: string): string {
+  if (!taken.has(name)) {
+    taken.add(name);
+    return name;
+  }
+  const dot = name.lastIndexOf('.');
+  const base = dot === -1 ? name : name.slice(0, dot);
+  const ext = dot === -1 ? '' : name.slice(dot);
+  let i = 1;
+  while (taken.has(`${base} (${i})${ext}`)) i += 1;
+  const next = `${base} (${i})${ext}`;
+  taken.add(next);
+  return next;
+}
+
+/** 모바일 사진첩 저장 — iOS·Android 모두 공유 시트의 "이미지 저장"으로 이어집니다 */
+export function canSaveToPhotos(photos: Photo[]): boolean {
+  if (typeof navigator.canShare !== 'function') return false;
+  const probe = new File([new Blob()], photos[0]?.name ?? 'photo.jpg', {
+    type: photos[0]?.kind === 'video' ? 'video/mp4' : 'image/jpeg',
+  });
+  return navigator.canShare({ files: [probe] });
+}
+
+interface Options {
+  roomCode: string;
+  onDone: (count: number) => void;
+  onFail: (count: number) => void;
+  shouldFail: () => boolean;
+}
+
+export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
+  const [transfer, setTransfer] = useState<TransferState | null>(null);
+  const canceled = useRef(false);
+
+  const cancel = useCallback(() => {
+    canceled.current = true;
+  }, []);
+
+  const start = useCallback(
+    async (photos: Photo[], mode: DownloadMode, toPhotoLibrary = false) => {
+      if (photos.length === 0) return;
+      canceled.current = false;
+      const total = photos.length;
+      setTransfer({ kind: 'download', done: 0, total, percent: 0, canceled: false });
+
+      const taken = new Set<string>();
+      const blobs: { name: string; blob: Blob }[] = [];
+      let failed = 0;
+
+      for (let i = 0; i < photos.length; i += 1) {
+        if (canceled.current) break;
+        const photo = photos[i];
+        try {
+          if (shouldFail()) throw new Error('네트워크 오류');
+          const blob = await toBlob(photo);
+          blobs.push({ name: uniqueName(taken, photo.name), blob });
+        } catch {
+          failed += 1;
+        }
+        await sleep(90);
+        setTransfer({
+          kind: 'download',
+          done: i + 1,
+          total,
+          percent: Math.round(((i + 1) / total) * 100),
+          canceled: false,
+        });
+      }
+
+      const stopped = canceled.current;
+      setTransfer(null);
+      if (stopped) return;
+
+      if (failed > 0 && blobs.length === 0) {
+        onFail(failed);
+        return;
+      }
+
+      try {
+        if (toPhotoLibrary) {
+          // 사진첩 저장 (공유 시트)
+          const files = blobs.map(
+            ({ name, blob }) => new File([blob], name, { type: blob.type || 'image/jpeg' }),
+          );
+          await navigator.share({ files, title: '쏙에서 받은 사진' });
+        } else if (mode === 'zip') {
+          const zip = new JSZip();
+          blobs.forEach(({ name, blob }) => zip.file(name, blob));
+          const archive = await zip.generateAsync({ type: 'blob' });
+          saveBlob(archive, `sssOK_${roomCode}.zip`);
+        } else {
+          for (const { name, blob } of blobs) {
+            saveBlob(blob, name);
+            await sleep(160); // 브라우저가 연속 다운로드를 막지 않도록
+          }
+        }
+      } catch (error) {
+        // 공유 시트를 사용자가 닫은 경우는 실패로 보지 않습니다
+        if ((error as Error)?.name !== 'AbortError') {
+          onFail(blobs.length);
+          return;
+        }
+        return;
+      }
+
+      if (failed > 0) onFail(failed);
+      else onDone(blobs.length);
+    },
+    [onDone, onFail, roomCode, shouldFail],
+  );
+
+  return { transfer, start, cancel };
+}

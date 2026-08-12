@@ -1,0 +1,14 @@
+node_modules
+dist
+.DS_Store
+*.local
+*.tsbuildinfo
+
+# Firebase 클라이언트 설정 — 값 자체는 비밀이 아니지만 프로젝트별로 다르므로 커밋하지 않습니다
+.env
+.env.*
+!.env.example
+.vercel
+
+# 개인별 로컬 권한 설정 — 팀과 공유하지 않습니다
+.claude/settings.local.json

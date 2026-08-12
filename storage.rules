@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// sssOK Firebase Storage 보안 규칙
+// 적용 방법: Firebase 콘솔 → Storage → 규칙 탭에 이 파일 전체를 붙여넣고 게시
+// (share-drop이 Storage를 쓰지 않는다면 이 파일 그대로 붙여넣어도 안전합니다.
+//  다른 앱이 이미 규칙을 쓰고 있다면 sssok/ 블록만 옮겨 붙이세요)
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // sssok/{code}/{photoId}/{filename} 경로만 열어둡니다
+    match /sssok/{code}/{photoId}/{fileName} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

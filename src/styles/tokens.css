@@ -1,0 +1,68 @@
+/* 쏙 sssOK — 디자인 토큰
+ * 색상값은 피그마 시안 PNG에서 직접 추출한 값입니다. */
+
+:root {
+  /* Brand */
+  --orange: #f66d3b;
+  --orange-press: #e0592a;
+  --orange-weak: #fdd8c6;
+  --orange-soft: #feeadf;
+  --orange-tint: #fff3ec;
+  --orange-ink: #b5451c;
+
+  /* Neutral */
+  --ink: #1a1a1a;
+  --ink-2: #2e2e29;
+  --gray-700: #5f5b56;
+  --gray-500: #8b8781;
+  --gray-400: #a8a49e;
+  --line: #e4e2dd;
+  --line-strong: #d1cfca;
+  --placeholder: #ede8de;
+  --white: #ffffff;
+
+  /* Surface */
+  --cream: #fffaf2;
+  --surface: #ffffff;
+  --surface-soft: #fbf6ef;
+  --scrim: rgba(26, 22, 18, 0.42);
+
+  /* Status */
+  --danger: #f13337;
+  --danger-soft: #fdecec;
+  --disabled-bg: #c9c7c4;
+  --disabled-fg: #ffffff;
+
+  /* Radius */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 24px;
+  --r-full: 999px;
+
+  /* Elevation */
+  --sh-card: 0 2px 10px rgba(45, 38, 31, 0.06);
+  --sh-pop: 0 8px 28px rgba(45, 38, 31, 0.16);
+  --sh-sheet: 0 -8px 32px rgba(45, 38, 31, 0.14);
+  --sh-fab: 0 6px 18px rgba(246, 109, 59, 0.36);
+
+  /* Layout */
+  --page-x: 24px;
+  --header-h: 56px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur: 220ms;
+
+  /* Type */
+  --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 1ms;
+  }
+}

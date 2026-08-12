@@ -1,0 +1,198 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: #efece6;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  /* 한국어는 어절 단위로 줄바꿈해야 읽기 좋습니다 */
+  word-break: keep-all;
+  line-break: strict;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+ul,
+li {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── 앱 셸 ───────────────────────────────────────────────
+ * 모바일: 화면 전체. 데스크톱: 넓은 캔버스에서 웹 인터랙션(범위/드래그 선택, 2~5열)을
+ * 그대로 쓸 수 있도록 최대 폭까지 확장합니다. */
+.app-shell {
+  position: relative;
+  height: 100%;
+  margin: 0 auto;
+  max-width: 480px;
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 1180px;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+}
+
+.screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 타이포 ─────────────────────────────────────────── */
+.t-display {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.34;
+  letter-spacing: -0.02em;
+}
+.t-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.t-h2 {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.t-body {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.t-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.t-caption {
+  font-size: 12px;
+  font-weight: 500;
+}
+.muted {
+  color: var(--gray-500);
+}
+.center {
+  text-align: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 애니메이션 ─────────────────────────────────────── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes toast-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
