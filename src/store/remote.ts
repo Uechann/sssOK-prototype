@@ -32,6 +32,7 @@ import {
 } from 'firebase/storage';
 import type { Folder, Member, Photo, Room, UploadPolicy } from '../types';
 import { db, storage } from '../lib/firebase';
+import { blobToDataUrl } from '../lib/media';
 
 const ROOMS = 'sssok_rooms';
 const CHUNK = 30; // Firestore 'in' 쿼리 상한
@@ -70,8 +71,9 @@ interface PhotoDoc {
   createdAt: number;
   folderIds: string[];
   place?: string;
-  /** 삭제 시 Storage 객체를 함께 지우기 위한 내부 필드 — 앱 도메인 타입에는 노출하지 않습니다 */
-  storagePath: string;
+  /** 삭제 시 Storage 객체를 함께 지우기 위한 내부 필드 — 앱 도메인 타입에는 노출하지 않습니다.
+   * 이미지는 Storage를 쓰지 않고 src에 데이터를 그대로 담기 때문에 없습니다. */
+  storagePath?: string;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -133,7 +135,8 @@ export function subscribeRoom(code: string, onChange: (room: Room | null) => voi
             name: data.name,
             kind: data.kind,
             src: data.src,
-            poster: data.poster,
+            // 이미지는 poster를 src와 중복 저장하지 않으므로(문서 용량 절약) 여기서 채워줍니다
+            poster: data.poster || data.src,
             width: data.width,
             height: data.height,
             size: data.size,
@@ -241,7 +244,57 @@ interface UploadInput {
   onProgress?: (percent: number) => void;
 }
 
-export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
+function toPhoto(id: string, data: PhotoDoc): Photo {
+  return {
+    id,
+    name: data.name,
+    kind: data.kind,
+    src: data.src,
+    // 이미지는 poster를 src와 중복 저장하지 않으므로(문서 용량 절약) 여기서 채워줍니다
+    poster: data.poster || data.src,
+    width: data.width,
+    height: data.height,
+    size: data.size,
+    originalSize: data.originalSize,
+    durationSec: data.durationSec,
+    uploaderId: data.uploaderId,
+    uploaderName: data.uploaderName,
+    createdAt: data.createdAt,
+    folderIds: data.folderIds,
+    place: data.place,
+  };
+}
+
+/** 이미지 — Storage 없이 Firestore 문서 안에 base64로 그대로 넣습니다.
+ * `useUpload`가 이미 FIRESTORE_INLINE_BUDGET 아래로 압축해서 넘겨줍니다.
+ * poster는 src와 완전히 같은 문자열이라(이미지는 썸네일=원본) 문서에 중복 저장하지
+ * 않고 비워둡니다 — 안 그러면 문서 용량이 그대로 두 배가 돼요. */
+async function uploadImageInline(input: UploadInput): Promise<Photo> {
+  input.onProgress?.(40);
+  const src = await blobToDataUrl(input.blob);
+  input.onProgress?.(80);
+  const data: PhotoDoc = {
+    name: input.name,
+    kind: 'image',
+    src,
+    poster: '',
+    width: input.width,
+    height: input.height,
+    size: input.blob.size,
+    originalSize: input.originalSize,
+    uploaderId: input.uploaderId,
+    uploaderName: input.uploaderName,
+    createdAt: Date.now(),
+    folderIds: input.folderIds,
+  };
+  await setDoc(photoRef(input.code, input.id), data);
+  input.onProgress?.(100);
+  return toPhoto(input.id, data);
+}
+
+/** 영상 — Firestore 문서에 담기엔 너무 커서 Storage에 올립니다.
+ * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
+function uploadVideoToStorage(input: UploadInput): Promise<Photo> {
   const path = `sssok/${input.code}/${input.id}/${input.name}`;
   const storageRef = ref(storage, path);
   const task = uploadBytesResumable(storageRef, input.blob, {
@@ -259,12 +312,11 @@ export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
         void (async () => {
           try {
             const src = await getDownloadURL(task.snapshot.ref);
-            const poster = input.kind === 'video' ? input.poster || src : src;
             const data: PhotoDoc = {
               name: input.name,
-              kind: input.kind,
+              kind: 'video',
               src,
-              poster,
+              poster: input.poster || src,
               width: input.width,
               height: input.height,
               size: input.blob.size,
@@ -277,22 +329,7 @@ export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
               storagePath: path,
             };
             await setDoc(photoRef(input.code, input.id), data);
-            resolve({
-              id: input.id,
-              name: data.name,
-              kind: data.kind,
-              src: data.src,
-              poster: data.poster,
-              width: data.width,
-              height: data.height,
-              size: data.size,
-              originalSize: data.originalSize,
-              durationSec: data.durationSec,
-              uploaderId: data.uploaderId,
-              uploaderName: data.uploaderName,
-              createdAt: data.createdAt,
-              folderIds: data.folderIds,
-            });
+            resolve(toPhoto(input.id, data));
           } catch (error) {
             reject(error as Error);
           }
@@ -300,6 +337,10 @@ export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
       },
     );
   });
+}
+
+export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
+  return input.kind === 'image' ? uploadImageInline(input) : uploadVideoToStorage(input);
 }
 
 export async function removePhotosRemote(code: string, ids: string[]): Promise<void> {

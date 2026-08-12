@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { Photo, TransferState, UploadItem } from '../../types';
 import { uid } from '../../lib/format';
 import { blobStore } from '../../lib/idb';
-import { kindOf, optimize, overLimitReason } from '../../lib/media';
+import { FIRESTORE_INLINE_BUDGET, kindOf, optimize, overLimitReason } from '../../lib/media';
 import { firebaseEnabled } from '../../lib/firebase';
 import { uploadPhotoRemote } from '../../store/remote';
 
@@ -38,8 +38,10 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
 
   const uploadOne = useCallback(
     async (item: UploadItem, folderIds: string[]): Promise<Photo> => {
+      // 이미지를 Firestore 문서 안에 그대로 넣는 모드에서는 예산 안에 들어오도록 더 압축합니다
+      const inlineBudget = firebaseEnabled && item.kind === 'image' ? FIRESTORE_INLINE_BUDGET : undefined;
       // 자동 최적화: 1600px 리사이즈 + 압축 (GIF는 원본 유지)
-      const optimized = await optimize(item.file, item.kind);
+      const optimized = await optimize(item.file, item.kind, inlineBudget);
       const id = uid('p_');
 
       if (firebaseEnabled) {

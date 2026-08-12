@@ -10,9 +10,12 @@
 
 `.env.local`에 Firebase 설정값이 있는지에 따라 자동으로 갈립니다(`src/lib/firebase.ts`).
 
-- **Firebase 모드** (값이 채워져 있을 때) — Firestore(`sssok_rooms` 컬렉션)에 방·폴더·멤버를,
-  Firebase Storage(`sssok/` 경로)에 원본 이미지·영상을 저장합니다. `onSnapshot`으로 실시간
-  구독하므로 **다른 기기·다른 브라우저에서도** 같은 방이 그대로 보입니다.
+- **Firebase 모드** (값이 채워져 있을 때) — Firestore(`sssok_rooms` 컬렉션)에 방·폴더·멤버·**이미지**를
+  저장합니다. `onSnapshot`으로 실시간 구독하므로 **다른 기기·다른 브라우저에서도** 같은 방이
+  그대로 보입니다. 이미지는 Storage 없이 Firestore 문서 안에 base64로 바로 들어가서(share-drop과
+  같은 방식) **Storage·CORS 설정 없이 바로 동작**합니다 — 1600px 이하·700KB 이하로 자동
+  압축해 Firestore 문서 한도(1MiB)에 맞춥니다. 영상만 용량 때문에 Firebase Storage가 필요합니다
+  (아래 "영상 업로드" 참고).
 - **로컬 모드** (값이 비어 있을 때) — 메타데이터는 `localStorage`, 바이트는 `IndexedDB`에 두고
   탭 간 동기화는 `BroadcastChannel`로 흉내냅니다. 이 브라우저 안에서만 존재합니다.
 
@@ -34,11 +37,19 @@ Firebase 모드에서는 빈 온보딩 화면에서 시작합니다(방을 직�
 
 ### Firebase 프로젝트 준비 (한 번만)
 
-1. **Firestore 규칙** — Firebase 콘솔 → Firestore Database → 규칙 탭에 [`firestore.rules`](firestore.rules) 내용을 붙여넣고 게시
-2. **Storage 규칙** — 콘솔 → Storage → 규칙 탭에 [`storage.rules`](storage.rules) 내용을 붙여넣고 게시
-   (Storage를 이 프로젝트에서 처음 쓴다면 먼저 Storage 탭에서 "시작하기"로 기본 버킷을 만들어야 합니다)
-3. **Storage CORS** — 브라우저에서 곧장 Storage로 업로드하기 때문에, 버킷에 CORS를 한 번 설정해야
-   합니다. 이 저장소의 [`cors.json`](cors.json)을 그대로 쓰면 됩니다.
+**필수 — Firestore 규칙.** 이것만 하면 방 만들기·폴더·**이미지 업로드**까지 전부 됩니다.
+
+- Firebase 콘솔 → Firestore Database → 규칙 탭에 [`firestore.rules`](firestore.rules) 내용을 붙여넣고 게시
+- share-drop과 같은 프로젝트를 재사용하는 경우, 이 파일은 share-drop의 기존 규칙에
+  `sssok_rooms` 블록만 추가된 형태라 그대로 덮어써도 share-drop 쪽 규칙은 유지됩니다
+
+**선택 — 영상 업로드를 쓰려면.** 영상은 Firestore 문서(1MiB 한도)에 담기엔 너무 커서 Storage가
+필요합니다. 이 단계를 건너뛰면 이미지는 정상 동작하고, 영상만 업로드 실패로 뜹니다.
+
+1. Firebase 콘솔 → **Storage** → "시작하기"로 기본 버킷 생성 (이 프로젝트에서 Storage를 처음 쓴다면 필요)
+2. Storage → 규칙 탭에 [`storage.rules`](storage.rules) 붙여넣고 게시
+3. 버킷 CORS 설정 (브라우저에서 곧장 Storage로 업로드하기 때문에 필요) — 이 저장소의
+   [`cors.json`](cors.json)을 그대로 쓰면 됩니다.
    - [Google Cloud Console → Cloud Storage → 버킷](https://console.cloud.google.com/storage/browser) 에서
      해당 버킷을 열고 "구성" 탭 → CORS 편집으로 `cors.json` 내용을 붙여넣거나,
    - `gcloud`/`gsutil`이 설치돼 있다면:
@@ -46,11 +57,6 @@ Firebase 모드에서는 빈 온보딩 화면에서 시작합니다(방을 직�
      gcloud storage buckets update gs://<버킷 이름> --cors-file=cors.json
      # 또는 구버전 CLI: gsutil cors set cors.json gs://<버킷 이름>
      ```
-   - 이 단계를 건너뛰면 Firestore(방 만들기·폴더 등)는 정상 동작하지만,
-     사진·영상 업로드만 브라우저 CORS 에러로 막힙니다.
-
-share-drop과 같은 Firebase 프로젝트를 재사용하는 경우, `firestore.rules`는 share-drop의
-기존 규칙에 `sssok_rooms` 블록만 추가된 형태라 그대로 덮어써도 share-drop 쪽 규칙은 유지됩니다.
 
 ## 확인해보면 좋은 것들
 
@@ -118,6 +124,8 @@ share-drop과 같은 Firebase 프로젝트를 재사용하는 경우, `firestore
 - 파일 선택 + 드래그&드롭, 개수 제한 없음, 이미지·영상 모두
 - **자동 최적화** — 긴 변 1600px 리사이즈 후 JPEG 압축, 1.5MB를 넘으면 2차 압축.
   GIF는 애니메이션이 깨지므로 원본 유지 (`lib/media.ts`)
+  - Firebase 모드의 이미지는 Storage 없이 Firestore 문서에 그대로 들어가기 때문에
+    700KB(문서 한도 1MiB에 맞춘 값) 아래로 떨어질 때까지 해상도·화질을 단계적으로 더 낮춥니다
 - **제한** — 이미지 10MB / 영상 1GB 초과 시 파일별 사유와 함께 안내
 - **진행 연출** — 사진이 구멍으로 쏙 들어가는 애니메이션(`Hopper.tsx`).
   진행 바의 개수를 누르면 파일별 상태(대기 → 진행 → 완료/실패)가 펼쳐집니다
@@ -173,5 +181,8 @@ src/
 - 방 삭제 30일 뒤 영구 삭제는 로컬 모드에서만 자동 실행됩니다(`purgeExpiredTrash`).
   Firebase 모드는 소프트 삭제(`deletedAt`)까지만 하고, 실제 파일 정리는 Cloud Functions 같은
   서버 측 예약 작업이 있어야 합니다(이 프로토타입엔 없습니다)
-- Firebase 업로드 진행률은 실제 `uploadBytesResumable` 진행률입니다(로컬 모드만 연출).
-  다운로드/실패 연출은 두 모드 다 시뮬레이션입니다
+- Firebase 모드에서 영상 업로드는 실제 `uploadBytesResumable` 진행률입니다(Storage 설정이 안 돼
+  있으면 실패). 이미지는 Firestore 문서 쓰기 한 번이라 진행률이 짧게 지나갑니다. 로컬 모드는
+  둘 다 연출입니다. 다운로드/실패 연출도 모든 모드에서 시뮬레이션입니다
+- 이미지를 Firestore 문서 안에 base64로 직접 저장하다 보니, 사진이 아주 많이 쌓인 방은
+  스크롤할 때 다른 방식보다 데이터가 더 오갑니다. 프로토타입 규모에선 체감되지 않습니다
