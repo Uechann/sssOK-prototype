@@ -84,79 +84,190 @@ export function useSelection(orderedIds: string[]) {
       .map((el) => el.dataset.photoId as string);
   }, []);
 
+  const idsInCellRange = useCallback((anchorId: string, clientX: number, clientY: number) => {
+    const grid = gridRef.current;
+    const firstTile = grid?.querySelector<HTMLElement>('[data-photo-id]');
+    const anchorIndex = orderedIds.indexOf(anchorId);
+    if (!grid || !firstTile || anchorIndex < 0) return [];
+
+    const styles = getComputedStyle(grid);
+    const columns = Math.max(1, styles.gridTemplateColumns.split(' ').filter(Boolean).length);
+    const columnGap = Number.parseFloat(styles.columnGap) || 0;
+    const rowGap = Number.parseFloat(styles.rowGap) || 0;
+    const first = firstTile.getBoundingClientRect();
+    const totalRows = Math.ceil(orderedIds.length / columns);
+    const currentColumn = Math.max(
+      0,
+      Math.min(columns - 1, Math.floor((clientX - first.left + columnGap / 2) / (first.width + columnGap))),
+    );
+    const currentRow = Math.max(
+      0,
+      Math.min(totalRows - 1, Math.floor((clientY - first.top + rowGap / 2) / (first.height + rowGap))),
+    );
+    const pointedIndex = Math.min(orderedIds.length - 1, currentRow * columns + currentColumn);
+    const start = Math.min(anchorIndex, pointedIndex);
+    const end = Math.max(anchorIndex, pointedIndex);
+    return orderedIds.slice(start, end + 1);
+  }, [orderedIds]);
+
+  const scrollSpeed = (clientY: number, host: HTMLElement) => {
+    const bounds = host.getBoundingClientRect();
+    const edge = 64;
+    if (clientY < bounds.top + edge) {
+      return -Math.ceil(Math.min(1, (bounds.top + edge - clientY) / edge) * 18);
+    }
+    if (clientY > bounds.bottom - edge) {
+      return Math.ceil(Math.min(1, (clientY - (bounds.bottom - edge)) / edge) * 18);
+    }
+    return 0;
+  };
+
   const onMarqueeStart = useCallback(
     (event: React.MouseEvent) => {
-      // 타일이 아닌 빈 공간에서 시작한 드래그만 영역 선택
       if (event.button !== 0) return;
-      if ((event.target as HTMLElement).closest('[data-photo-id]')) return;
+      if ((event.target as HTMLElement).closest('button')) return;
       const grid = gridRef.current;
       if (!grid) return;
 
       const base = event.shiftKey || event.metaKey ? new Set(selected) : new Set<string>();
-      dragState.current = { x: event.clientX, y: event.clientY, base };
+      const hostRect = grid.getBoundingClientRect();
+      const scrollHost = grid.closest<HTMLElement>('.gallery-scroll');
+      const startedOnTile = Boolean((event.target as HTMLElement).closest('[data-photo-id]'));
+      const startX = event.clientX - hostRect.left;
+      const startY = event.clientY - hostRect.top;
+      dragState.current = { x: startX, y: startY, base };
       let moved = false;
+      let clientX = event.clientX;
+      let clientY = event.clientY;
+      let frame = 0;
 
-      const onMove = (move: MouseEvent) => {
+      const update = () => {
         const start = dragState.current;
         if (!start) return;
-        const left = Math.min(start.x, move.clientX);
-        const top = Math.min(start.y, move.clientY);
-        const width = Math.abs(move.clientX - start.x);
-        const height = Math.abs(move.clientY - start.y);
+        const bounds = grid.getBoundingClientRect();
+        const currentX = clientX - bounds.left;
+        const currentY = clientY - bounds.top;
+        const left = Math.min(start.x, currentX);
+        const top = Math.min(start.y, currentY);
+        const width = Math.abs(currentX - start.x);
+        const height = Math.abs(currentY - start.y);
         if (!moved && width + height < 6) return;
         moved = true;
 
-        const host = grid.getBoundingClientRect();
-        setMarquee({ left: left - host.left, top: top - host.top, width, height });
-        const hits = idsInRect(new DOMRect(left, top, width, height));
+        setMarquee({ left, top, width, height });
+        const hits = idsInRect(new DOMRect(bounds.left + left, bounds.top + top, width, height));
         setSelected(new Set([...start.base, ...hits]));
+      };
+
+      const autoScroll = () => {
+        if (!dragState.current) return;
+        if (scrollHost) {
+          const speed = scrollSpeed(clientY, scrollHost);
+          if (speed !== 0) {
+            scrollHost.scrollTop += speed;
+            update();
+          }
+        }
+        frame = requestAnimationFrame(autoScroll);
+      };
+
+      const onMove = (move: MouseEvent) => {
+        clientX = move.clientX;
+        clientY = move.clientY;
+        update();
       };
 
       const onUp = () => {
         // 빈 공간 클릭(드래그 없이) → 선택 해제
-        if (!moved) clear();
+        if (!moved && !startedOnTile) clear();
+        if (moved) suppressMarqueeClick.current = true;
         dragState.current = null;
+        cancelAnimationFrame(frame);
         setMarquee(null);
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
       };
 
+      frame = requestAnimationFrame(autoScroll);
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
     [clear, idsInRect, selected],
   );
 
+  const suppressMarqueeClick = useRef(false);
+  const consumeMarqueeClick = useCallback(() => {
+    if (!suppressMarqueeClick.current) return false;
+    suppressMarqueeClick.current = false;
+    return true;
+  }, []);
+
   /* ── 슬라이드 선택 (모바일) ────────────────────────── */
-  const slideState = useRef<{ on: boolean; seen: Set<string> } | null>(null);
+  const slideState = useRef<{
+    on: boolean;
+    base: Set<string>;
+    anchorId: string;
+    clientX: number;
+    clientY: number;
+    frame: number;
+  } | null>(null);
 
   const onSlideStart = useCallback(
-    (id: string) => {
+    (id: string, clientX: number, clientY: number) => {
       const on = !selected.has(id);
-      slideState.current = { on, seen: new Set([id]) };
-      setMany([id], on);
+      const base = new Set(selected);
+      const next = new Set(base);
+      if (on) next.add(id);
+      else next.delete(id);
+      setSelected(next);
+
+      const state = { on, base, anchorId: id, clientX, clientY, frame: 0 };
+      slideState.current = state;
+
+      const autoScroll = () => {
+        const current = slideState.current;
+        const grid = gridRef.current;
+        const scrollHost = grid?.closest<HTMLElement>('.gallery-scroll');
+        if (!current || !grid || !scrollHost) return;
+        const speed = scrollSpeed(current.clientY, scrollHost);
+        if (speed !== 0) {
+          scrollHost.scrollTop += speed;
+          applySlideRange(current);
+        }
+        current.frame = requestAnimationFrame(autoScroll);
+      };
+      state.frame = requestAnimationFrame(autoScroll);
     },
-    [selected, setMany],
+    [selected],
+  );
+
+  const applySlideRange = useCallback(
+    (state: NonNullable<typeof slideState.current>) => {
+      const hits = idsInCellRange(state.anchorId, state.clientX, state.clientY);
+      const next = new Set(state.base);
+      hits.forEach((id) => (state.on ? next.add(id) : next.delete(id)));
+      setSelected(next);
+    },
+    [idsInCellRange],
   );
 
   const onSlideMove = useCallback(
     (event: React.TouchEvent) => {
       const state = slideState.current;
       if (!state) return;
+      event.preventDefault();
       const touch = event.touches[0];
       if (!touch) return;
-      const el = document
-        .elementFromPoint(touch.clientX, touch.clientY)
-        ?.closest<HTMLElement>('[data-photo-id]');
-      const id = el?.dataset.photoId;
-      if (!id || state.seen.has(id)) return;
-      state.seen.add(id);
-      setMany([id], state.on);
+      state.clientX = touch.clientX;
+      state.clientY = touch.clientY;
+      applySlideRange(state);
     },
-    [setMany],
+    [applySlideRange],
   );
 
   const onSlideEnd = useCallback(() => {
+    const state = slideState.current;
+    if (state) cancelAnimationFrame(state.frame);
     slideState.current = null;
   }, []);
 
@@ -173,6 +284,7 @@ export function useSelection(orderedIds: string[]) {
     gridRef,
     marquee,
     onMarqueeStart,
+    consumeMarqueeClick,
     onSlideStart,
     onSlideMove,
     onSlideEnd,

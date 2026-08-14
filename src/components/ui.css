@@ -24,6 +24,12 @@
   font-size: 15px;
   border-radius: 12px;
 }
+.btn--menu {
+  height: 65px;
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
 .btn--primary {
   background: var(--orange);
   color: #fff;
@@ -39,6 +45,9 @@
   background: var(--white);
   color: var(--ink);
   border: 1px solid var(--line);
+}
+.btn--menu.btn--secondary {
+  border-width: 1.25px;
 }
 .btn--secondary:hover:not(:disabled) {
   background: var(--surface-soft);
@@ -111,20 +120,23 @@
   height: 52px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid var(--line);
+  border: 1.6px solid var(--line);
   background: var(--white);
   outline: none;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .field__box::placeholder {
+  font-size: 15px;
   color: var(--gray-400);
   font-weight: 500;
 }
 .field__box:focus,
 .field__box:focus-visible {
   border-color: var(--orange);
+  border-width: 2px;
+  border-radius: 12px;
   outline: none;
 }
 .field[data-invalid='true'] .field__box {
@@ -164,13 +176,13 @@
   font-size: 15px;
   font-weight: 500;
   color: var(--gray-500);
-  transition: all var(--dur) var(--ease);
+  transition: background-color var(--dur) var(--ease);
 }
 .segment__item[aria-pressed='true'] {
-  color: var(--ink);
+  color: var(--orange);
   font-weight: 700;
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
+  border-color: var(--orange);
+  box-shadow: inset 0 0 0 1px var(--orange);
 }
 
 /* ── 스위치 ────────────────────────────────────────── */
@@ -270,6 +282,41 @@
 .modal__actions:has(> :only-child) {
   grid-template-columns: 1fr;
 }
+.download-fail-modal,
+.upload-fail-modal,
+.delete-photos-modal,
+.delete-room-modal,
+.delete-folder-modal {
+  padding: 40px 20px 20px;
+}
+.download-fail-modal .modal__art,
+.upload-fail-modal .modal__art,
+.delete-photos-modal .modal__art,
+.delete-room-modal .modal__art,
+.delete-folder-modal .modal__art {
+  margin-bottom: 20px;
+}
+.download-fail-modal .modal__desc,
+.upload-fail-modal .modal__desc,
+.delete-photos-modal .modal__desc,
+.delete-room-modal .modal__desc,
+.delete-folder-modal .modal__desc {
+  margin-top: 20px;
+}
+.download-fail-modal .modal__actions,
+.upload-fail-modal .modal__actions,
+.delete-photos-modal .modal__actions,
+.delete-room-modal .modal__actions,
+.delete-folder-modal .modal__actions {
+  margin-top: 20px;
+}
+.download-fail-modal .modal__actions .btn,
+.upload-fail-modal .modal__actions .btn,
+.delete-photos-modal .modal__actions .btn,
+.delete-room-modal .modal__actions .btn,
+.delete-folder-modal .modal__actions .btn {
+  height: 55px;
+}
 
 .modal[data-align='left'] {
   padding: 26px 22px 22px;
@@ -314,6 +361,13 @@
   background: var(--line-strong);
   margin: 0 auto 18px;
 }
+.sheet__grabber[data-draggable='true'] {
+  cursor: grab;
+  touch-action: none;
+}
+.sheet__grabber[data-draggable='true']:active {
+  cursor: grabbing;
+}
 .sheet__head {
   display: flex;
   align-items: baseline;
@@ -340,6 +394,106 @@
   margin: -4px 0 16px;
 }
 
+/* 최초 입장 이름 입력 시트 */
+.name-gate__backdrop {
+  background: var(--white);
+}
+.overlay:has(.name-sheet) {
+  background: rgba(26, 22, 18, 0.18);
+}
+.name-sheet {
+  padding: 44px 30px calc(54px + var(--safe-b));
+}
+.name-sheet .sheet__head {
+  margin-bottom: 20px;
+}
+.name-sheet .sheet__title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.name-sheet .field__label {
+  margin-bottom: 6px;
+  color: #aba399;
+  font-size: 12px;
+  font-weight: 500;
+}
+.name-sheet .field__box {
+  height: 55px;
+}
+.name-sheet .field__meta {
+  margin-top: 6px;
+}
+.name-sheet .field[data-invalid='true'] .field__count {
+  color: var(--danger);
+}
+.name-sheet__button {
+  height: 55px;
+  margin-top: 20px;
+  font-size: 15px;
+}
+
+/* 새 폴더 / 폴더 이름 수정 — 최초 이름 입력 시트 규격 */
+.folder-name-sheet {
+  padding: 12px 30px calc(54px + var(--safe-b));
+}
+.folder-name-sheet .sheet__head {
+  margin-bottom: 20px;
+}
+.folder-name-sheet .sheet__title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.folder-name-sheet .field__label {
+  margin-bottom: 6px;
+  color: #aba399;
+  font-size: 12px;
+  font-weight: 500;
+}
+.folder-name-sheet .field__box {
+  height: 55px;
+}
+.folder-name-sheet .field__meta {
+  margin-top: 6px;
+}
+.folder-name-sheet__button {
+  height: 55px;
+  margin-top: 20px;
+  font-size: 15px;
+}
+
+/* 다운로드 방식 선택 시트 — 이름 입력 시트의 기본 규격 */
+.download-sheet {
+  padding-right: 30px;
+  padding-bottom: calc(54px + var(--safe-b));
+  padding-left: 30px;
+}
+.download-sheet .sheet__title {
+  font-size: 18px;
+  font-weight: 600;
+}
+.download-sheet .sheet__grabber {
+  margin-bottom: 22px;
+}
+.download-sheet .sheet__head {
+  margin-bottom: 16px;
+}
+.download-sheet .download-sheet__hint {
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.download-sheet__button {
+  height: 55px;
+  font-size: 15px;
+}
+.move-sheet__actions {
+  display: grid;
+  gap: 10px;
+}
+.move-sheet__actions .btn {
+  height: 55px;
+  font-size: 15px;
+}
+
 /* 시트 안의 선택 카드 (다운로드 방식 · 폴더 이동) */
 .option {
   display: flex;
@@ -351,13 +505,14 @@
   border: 1px solid var(--line);
   background: var(--white);
   text-align: left;
-  transition: all var(--dur) var(--ease);
+  transition: background-color var(--dur) var(--ease);
 }
 .option + .option {
   margin-top: 10px;
 }
 .option[aria-pressed='true'] {
   border-color: var(--orange);
+  box-shadow: inset 0 0 0 1px var(--orange);
   background: var(--orange-tint);
 }
 .option__icon {
@@ -377,13 +532,13 @@
 }
 .option__name {
   display: block;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
 }
 .option__sub {
   display: block;
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 10px;
   color: var(--gray-500);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -440,6 +595,13 @@
   background: var(--orange-tint);
   color: var(--orange);
 }
+.popover__item[data-tone='danger']:not(:disabled) {
+  color: var(--danger);
+}
+.popover__item[data-tone='danger']:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
 .popover__item:disabled {
   color: var(--line-strong);
   cursor: not-allowed;
@@ -464,9 +626,9 @@
 /* ── 토스트 ────────────────────────────────────────── */
 .toast-layer {
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: calc(16px + var(--safe-b));
+  left: 20px;
+  right: 20px;
+  bottom: calc(36px + var(--safe-b));
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -479,16 +641,29 @@
 .app-shell:has(.net-banner) .toast-layer {
   bottom: calc(94px + var(--safe-b));
 }
+.app-shell:has(.dockbar--selection) .toast-layer {
+  bottom: calc(36px + var(--safe-b));
+}
 .toast {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 15px 18px;
-  border-radius: var(--r-lg);
+  padding: 22px;
+  border: 1.25px solid #e5ded1;
+  border-radius: var(--r-full);
   background: var(--white);
-  box-shadow: var(--sh-pop);
-  animation: toast-up var(--dur) var(--ease);
+  box-shadow: 0 12.42px 24.84px rgba(41, 28, 20, 0.14);
+  animation: toast-up 400ms var(--ease);
   pointer-events: auto;
+}
+.toast[data-exiting='true'] {
+  pointer-events: none;
+  animation: toast-down 400ms var(--ease) forwards;
+}
+@keyframes toast-down {
+  to {
+    opacity: 0;
+  }
 }
 .toast__icon {
   display: grid;
@@ -505,14 +680,14 @@
 }
 .toast__text {
   flex: 1;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .toast__close {
   flex: none;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: var(--gray-500);
 }
 
@@ -521,15 +696,28 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 10px;
+  padding: 5px 12px;
+  border: 0;
   border-radius: var(--r-full);
   background: var(--orange-soft);
-  color: var(--ink);
+  color: var(--orange);
   font-size: 12px;
   font-weight: 700;
 }
 .chip--host {
-  background: var(--orange);
-  color: #fff;
+  gap: 4px;
+  padding: 3px 12px 3px 0;
+  border: 0;
+  background: #fff;
+  color: #f66d3b;
+  font-size: 12px;
+  line-height: 1;
+}
+.chip--host svg {
+  flex: none;
+}
+.chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -14,10 +14,12 @@ interface TileProps {
   desktop: boolean;
   onToggle: (shift: boolean) => void;
   onOpen: () => void;
-  onSlideStart: () => void;
+  onSlideStart: (clientX: number, clientY: number) => void;
 }
 
 function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideStart }: TileProps) {
+  const lastTouchAt = useRef(0);
+
   return (
     <div
       className="tile"
@@ -64,11 +66,15 @@ function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideSt
         aria-label={selected ? '선택 해제' : '선택'}
         onClick={(event) => {
           event.stopPropagation();
+          if (Date.now() - lastTouchAt.current < 700) return;
           onToggle(event.shiftKey);
         }}
         onTouchStart={(event) => {
+          lastTouchAt.current = Date.now();
+          event.preventDefault();
           event.stopPropagation();
-          onSlideStart();
+          const touch = event.touches[0];
+          if (touch) onSlideStart(touch.clientX, touch.clientY);
         }}
       >
         <IconCheck size={15} />
@@ -130,9 +136,12 @@ export function Gallery({
           mine={photo.uploaderId === meId}
           selected={selection.isSelected(photo.id)}
           desktop={desktop}
-          onToggle={(shift) => selection.toggle(photo.id, { shift })}
+          onToggle={(shift) => {
+            if (selection.consumeMarqueeClick()) return;
+            selection.toggle(photo.id, { shift });
+          }}
           onOpen={() => onOpen(photo.id)}
-          onSlideStart={() => selection.onSlideStart(photo.id)}
+          onSlideStart={(clientX, clientY) => selection.onSlideStart(photo.id, clientX, clientY)}
         />
       ))}
       <div className="grid__sentinel" ref={sentinel} />

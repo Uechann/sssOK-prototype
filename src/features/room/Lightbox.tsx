@@ -9,7 +9,7 @@ import {
   IconPlay,
   IconTrash,
 } from '../../components/Icons';
-import { formatBytes, formatDuration, formatWhen } from '../../lib/format';
+import { formatDuration, formatWhen } from '../../lib/format';
 import { useKey } from '../../lib/hooks';
 import './room.css';
 
@@ -39,12 +39,17 @@ export function Lightbox({
   onClose: () => void;
 }) {
   const photo = photos[index];
-  const [showDetail, setShowDetail] = useState(false);
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [settling, setSettling] = useState<-1 | 1 | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [zoom, setZoom] = useState<{ x: number; y: number; active: boolean } | null>(null);
+  const zoomResetTimer = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null);
 
   const go = useCallback(
     (delta: number) => {
@@ -62,7 +67,6 @@ export function Lightbox({
         if (event.key === 'ArrowLeft') go(-1);
         else if (event.key === 'ArrowRight') go(1);
         else if (event.key === 'Escape') onClose();
-        else if (event.key === 'i') setShowDetail((prev) => !prev);
       },
       [go, onClose],
     ),
@@ -71,7 +75,17 @@ export function Lightbox({
   useEffect(() => {
     setPlaying(false);
     setProgress(0);
+    setDeleteConfirm(false);
+    if (zoomResetTimer.current !== null) window.clearTimeout(zoomResetTimer.current);
+    setZoom(null);
   }, [photo?.id]);
+
+  useEffect(
+    () => () => {
+      if (zoomResetTimer.current !== null) window.clearTimeout(zoomResetTimer.current);
+    },
+    [],
+  );
 
   if (!photo) return null;
 
@@ -87,10 +101,38 @@ export function Lightbox({
     setDrag({ x: touch.clientX - start.x, y: Math.max(0, touch.clientY - start.y) });
   };
 
-  const onTouchEnd = () => {
+  const onTouchEnd = (event: React.TouchEvent) => {
     const current = drag;
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
     setDrag(null);
     touchStart.current = null;
+    const distance = current ? Math.hypot(current.x, current.y) : 0;
+
+    if (
+      !desktop &&
+      photo.kind !== 'video' &&
+      start &&
+      touch &&
+      distance < 12 &&
+      (event.target as HTMLElement).closest('.lightbox__stage')
+    ) {
+      const now = Date.now();
+      const previous = lastTap.current;
+      if (
+        previous &&
+        now - previous.time < 320 &&
+        Math.hypot(touch.clientX - previous.x, touch.clientY - previous.y) < 36
+      ) {
+        toggleZoomAt(touch.clientX, touch.clientY);
+        lastTap.current = null;
+      } else {
+        lastTap.current = { time: now, x: touch.clientX, y: touch.clientY };
+      }
+      return;
+    }
+
+    lastTap.current = null;
     if (!current) return;
     // 아래로 내려 닫기
     if (current.y > 96 && current.y > Math.abs(current.x)) {
@@ -98,12 +140,38 @@ export function Lightbox({
       return;
     }
     if (Math.abs(current.x) > SWIPE && Math.abs(current.x) > current.y) {
-      go(current.x < 0 ? 1 : -1);
+      const delta = current.x < 0 ? 1 : -1;
+      const next = index + delta;
+      if (next < 0 || next >= photos.length) return;
+      setSettling(delta);
+      window.setTimeout(() => {
+        onIndexChange(next);
+        setSettling(null);
+      }, 220);
     }
   };
 
   const duration = videoRef.current?.duration || photo.durationSec || 0;
   const played = (progress / (duration || 1)) * 100;
+
+  const toggleZoomAt = (clientX: number, clientY: number) => {
+    if (photo.kind === 'video') return;
+    if (zoom?.active) {
+      setZoom({ ...zoom, active: false });
+      zoomResetTimer.current = window.setTimeout(() => {
+        setZoom(null);
+        zoomResetTimer.current = null;
+      }, 220);
+      return;
+    }
+    const box = imageRef.current?.getBoundingClientRect();
+    if (!box) return;
+    setZoom({
+      x: Math.max(0, Math.min(100, ((clientX - box.left) / box.width) * 100)),
+      y: Math.max(0, Math.min(100, ((clientY - box.top) / box.height) * 100)),
+      active: true,
+    });
+  };
 
   return (
     <div
@@ -124,6 +192,12 @@ export function Lightbox({
       onTouchEnd={onTouchEnd}
     >
       <div className="lightbox__bar">
+        <button type="button" className="lightbox__pick" aria-label="뒤로가기" onClick={onClose}>
+          <IconChevronLeft size={20} />
+        </button>
+        <span className="lightbox__index">
+          {index + 1} / {photos.length}
+        </span>
         <button
           type="button"
           className="lightbox__pick"
@@ -133,68 +207,86 @@ export function Lightbox({
         >
           <IconCheck size={19} />
         </button>
-        <span className="lightbox__index">
-          {index + 1} / {photos.length}
-        </span>
-        <button
-          type="button"
-          className="lightbox__pick"
-          aria-pressed={showDetail}
-          aria-label="상세 정보"
-          onClick={() => setShowDetail((prev) => !prev)}
-        >
-          <svg width="19" height="19" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-        <button type="button" className="lightbox__close" aria-label="닫기" onClick={onClose}>
-          <IconClose size={20} />
-        </button>
       </div>
 
       <div className="lightbox__stage">
-        {photo.kind === 'video' ? (
-          <>
-            <video
-              ref={videoRef}
-              className="lightbox__media"
-              src={photo.src}
-              poster={photo.poster}
-              playsInline
-              onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime)}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onEnded={() => setPlaying(false)}
-              onClick={() => {
-                const video = videoRef.current;
-                if (!video) return;
-                if (video.paused) void video.play();
-                else video.pause();
-              }}
-            />
-            {!playing && (
-              <button
-                type="button"
-                aria-label="재생"
-                onClick={() => void videoRef.current?.play()}
-                style={{
-                  position: 'absolute',
-                  width: 72,
-                  height: 72,
-                  borderRadius: '50%',
-                  background: '#e9e7e3',
-                  color: '#2c2b30',
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                <IconPlay size={30} />
-              </button>
-            )}
-          </>
-        ) : (
-          <img className="lightbox__media" src={photo.src} alt={photo.name} draggable={false} />
-        )}
+        <div
+          className="lightbox__pages"
+          data-settling={Boolean(settling)}
+          style={{
+            transform: settling
+              ? `translateX(${settling > 0 ? '-66.666667%' : '0%'})`
+              : drag
+                ? `translateX(calc(-33.333333% + ${drag.x}px))`
+                : 'translateX(-33.333333%)',
+          }}
+        >
+          {[photos[index - 1], photo, photos[index + 1]].map((item, pageIndex) => (
+            <div
+              className="lightbox__page"
+              key={item?.id ?? `empty-${pageIndex}`}
+            >
+              {item && pageIndex === 1 && item.kind === 'video' ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    className="lightbox__media"
+                    src={item.src}
+                    poster={item.poster}
+                    playsInline
+                    onTimeUpdate={(event) => setProgress(event.currentTarget.currentTime)}
+                    onPlay={() => setPlaying(true)}
+                    onPause={() => setPlaying(false)}
+                    onEnded={() => setPlaying(false)}
+                    onClick={() => {
+                      const video = videoRef.current;
+                      if (!video) return;
+                      if (video.paused) void video.play();
+                      else video.pause();
+                    }}
+                  />
+                  {!playing && (
+                    <button
+                      type="button"
+                      aria-label="재생"
+                      onClick={() => void videoRef.current?.play()}
+                      style={{
+                        position: 'absolute',
+                        width: 72,
+                        height: 72,
+                        borderRadius: '50%',
+                        background: '#e9e7e3',
+                        color: '#2c2b30',
+                        display: 'grid',
+                        placeItems: 'center',
+                      }}
+                    >
+                      <IconPlay size={30} />
+                    </button>
+                  )}
+                </>
+              ) : item ? (
+                <img
+                  ref={pageIndex === 1 ? imageRef : undefined}
+                  className="lightbox__media"
+                  data-zoomed={Boolean(zoom?.active) && pageIndex === 1}
+                  data-mobile-zoom={pageIndex === 1 && !desktop && item.kind !== 'video'}
+                  src={item.kind === 'video' ? item.poster : item.src}
+                  alt={item.name}
+                  draggable={false}
+                  style={
+                    pageIndex === 1 && zoom
+                      ? {
+                          transform: zoom.active ? 'scale(2)' : 'scale(1)',
+                          transformOrigin: `${zoom.x}% ${zoom.y}%`,
+                        }
+                      : undefined
+                  }
+                />
+              ) : null}
+            </div>
+          ))}
+        </div>
 
         {desktop && index > 0 && (
           <button
@@ -235,25 +327,6 @@ export function Lightbox({
         </div>
       )}
 
-      {showDetail && (
-        <div className="lightbox__playbar" style={{ display: 'block', color: '#c8c5c0' }}>
-          <p style={{ fontSize: 12, lineHeight: 1.9 }}>
-            파일명 · {photo.name}
-            <br />
-            크기 · {photo.width}×{photo.height} · {formatBytes(photo.size)}
-            {photo.originalSize > photo.size && ` (원본 ${formatBytes(photo.originalSize)})`}
-            <br />
-            올린 사람 · {photo.uploaderName}
-            {photo.place && (
-              <>
-                <br />
-                위치 · {photo.place}
-              </>
-            )}
-          </p>
-        </div>
-      )}
-
       <div className="lightbox__foot">
         <div className="lightbox__meta">
           <p className="lightbox__uploader">{photo.uploaderName}</p>
@@ -269,7 +342,7 @@ export function Lightbox({
           aria-label="삭제"
           disabled={!canDelete}
           style={canDelete ? undefined : { opacity: 0.35, cursor: 'not-allowed' }}
-          onClick={onDelete}
+          onClick={() => setDeleteConfirm(true)}
         >
           <IconTrash size={21} />
         </button>
@@ -283,9 +356,26 @@ export function Lightbox({
         </button>
       </div>
 
-      <p className="lightbox__hint">
-        {desktop ? '← → 이동 · ESC 닫기' : '좌우로 밀어 이동 · 아래로 내려 닫기'}
-      </p>
+      {deleteConfirm && (
+        <>
+          <button
+            type="button"
+            className="lightbox__delete-dismiss"
+            aria-label="삭제 메뉴 닫기"
+            onClick={() => setDeleteConfirm(false)}
+          />
+          <div className="lightbox__delete-confirm" role="group" aria-label="사진 삭제 확인">
+            <button type="button" onClick={() => setDeleteConfirm(false)}>
+              <IconClose size={18} />
+              취소
+            </button>
+            <button type="button" data-danger="true" onClick={onDelete}>
+              <IconTrash size={18} />
+              삭제
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

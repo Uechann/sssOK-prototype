@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Mascot } from '../components/Mascot';
-import { Button } from '../components/ui';
+import { Button, MenuButton } from '../components/ui';
 import { IconBrokenLink, IconWifiOff } from '../components/Icons';
 import './entry.css';
 
@@ -9,14 +9,16 @@ function Result({
   title,
   desc,
   actions,
+  className = '',
 }: {
   art: ReactNode;
   title: string;
   desc: ReactNode;
   actions: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="result">
+    <div className={`result ${className}`}>
       <div className="result__body">
         {art}
         <h1 className="result__title">{title}</h1>
@@ -61,7 +63,8 @@ export function ExpiredRoomScreen({
 }) {
   return (
     <Result
-      art={<Mascot pose="close" size={230} />}
+      className="result--expired"
+      art={<Mascot pose="close" size={150} />}
       title="이 방은 사라졌어요"
       desc={
         <>
@@ -72,10 +75,10 @@ export function ExpiredRoomScreen({
       }
       actions={
         <>
-          <Button onClick={onCreate}>새 방 만들기</Button>
-          <Button variant="secondary" onClick={onHome}>
+          <MenuButton onClick={onCreate}>새 방 만들기</MenuButton>
+          <MenuButton variant="secondary" onClick={onHome}>
             홈으로
-          </Button>
+          </MenuButton>
         </>
       }
     />

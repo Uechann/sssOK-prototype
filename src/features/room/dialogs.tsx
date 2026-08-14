@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import type { Folder, Photo, UploadItem } from '../../types';
-import { Mascot, MascotImage } from '../../components/Mascot';
+import { MascotImage } from '../../components/Mascot';
 import { Button, Modal, Sheet, TextField } from '../../components/ui';
 import {
   IconAlert,
@@ -29,28 +29,43 @@ export function NameSheet({
   onClose?: () => void;
 }) {
   const [name, setName] = useState(initial);
+  const [limitError, setLimitError] = useState(false);
   const trimmed = name.trim();
 
   return (
     <Sheet
       title="표시할 이름을 입력해주세요"
-      desc="입력한 이름은 다른 사람에게 보여요"
       grabber={false}
       dismissible={Boolean(onClose)}
       onClose={() => onClose?.()}
+      className="name-sheet"
     >
       <TextField
+        label="입력한 이름은 다른 사람에게 보여요"
         placeholder="이름을 입력하세요"
         value={name}
         maxLength={NAME_MAX}
+        error={limitError ? '이름은 12자까지 입력할 수 있어요' : null}
         autoFocus
-        onChange={(event) => setName(event.target.value)}
+        onBeforeInput={(event) => {
+          const input = event.nativeEvent as InputEvent;
+          if (name.length >= NAME_MAX && input.data) {
+            event.preventDefault();
+            setLimitError(true);
+          }
+        }}
+        onChange={(event) => {
+          const next = event.target.value;
+          setName(next.slice(0, NAME_MAX));
+          setLimitError(next.length > NAME_MAX);
+        }}
         onKeyDown={(event) => {
+          if (name.length >= NAME_MAX && event.key.length === 1) setLimitError(true);
           if (event.key === 'Enter' && trimmed) onSubmit(trimmed);
         }}
       />
       <Button
-        style={{ marginTop: 8 }}
+        className="name-sheet__button"
         disabled={trimmed.length === 0}
         onClick={() => onSubmit(trimmed)}
       >
@@ -78,10 +93,7 @@ export function DownloadSheet({
   const [toPhotos, setToPhotos] = useState(false);
 
   return (
-    <Sheet title={`${count}개를 어떻게 받을까요?`} onClose={onClose}>
-      <div className="sheet__art">
-        <MascotImage name="sorted" size={128} />
-      </div>
+    <Sheet title={`${count}개를 어떻게 받을까요?`} onClose={onClose} className="download-sheet">
       <button
         type="button"
         className="option"
@@ -150,10 +162,12 @@ export function DownloadSheet({
         </button>
       )}
 
-      <p className="hint" style={{ marginBottom: 16 }}>
+      <p className="hint download-sheet__hint">
         업로드 당시 원본 파일명을 그대로 유지해요
       </p>
-      <Button onClick={() => onConfirm(mode, toPhotos)}>다운로드</Button>
+      <Button className="download-sheet__button" onClick={() => onConfirm(mode, toPhotos)}>
+        다운로드
+      </Button>
     </Sheet>
   );
 }
@@ -183,10 +197,8 @@ export function MoveSheet({
       title={`${count}개를 어디로 옮길까요?`}
       trailing={<span className="t-caption muted">선택됨 {count}</span>}
       onClose={onClose}
+      className="download-sheet move-sheet"
     >
-      <div className="sheet__art">
-        <MascotImage name="thumbsUp" size={122} />
-      </div>
       {folders.map((folder) => (
         <button
           key={folder.id}
@@ -220,19 +232,19 @@ export function MoveSheet({
         </span>
       </button>
 
-      <p className="hint" style={{ marginBottom: 16 }}>
+      <p className="hint download-sheet__hint">
         사진은 여러 폴더에 함께 담을 수 있어요.
       </p>
 
-      <div style={{ display: 'grid', gap: 10 }}>
-        <Button disabled={picked === null} onClick={() => onMove(picked)}>
-          여기로 이동
-        </Button>
+      <div className="move-sheet__actions">
         {currentFolderId && (
           <Button variant="secondary" onClick={() => onMove(null)}>
             폴더에서 꺼내기
           </Button>
         )}
+        <Button disabled={picked === null} onClick={() => onMove(picked)}>
+          여기로 이동
+        </Button>
       </div>
     </Sheet>
   );
@@ -253,31 +265,46 @@ export function FolderSheet({
   onSubmit: (name: string) => void;
 }) {
   const [name, setName] = useState(initial);
+  const [limitError, setLimitError] = useState(false);
   const trimmed = name.trim();
   const duplicated = trimmed !== initial && taken.includes(trimmed);
-  const tooLong = name.length >= NAME_MAX;
   const error = duplicated
     ? '같은 이름의 폴더가 있어요'
-    : tooLong
+    : limitError
       ? '폴더 이름을 확인해주세요'
       : null;
-  const valid = trimmed.length > 0 && !duplicated && !tooLong;
+  const valid = trimmed.length > 0 && !duplicated;
 
   return (
-    <Sheet title={mode === 'create' ? '새 폴더 만들기' : '폴더 이름 수정'} onClose={onClose}>
+    <Sheet
+      title={mode === 'create' ? '새 폴더 만들기' : '폴더 이름 수정'}
+      onClose={onClose}
+      className="folder-name-sheet"
+    >
       <TextField
         label={mode === 'create' ? '폴더 이름' : '새 폴더 이름'}
         placeholder="폴더 이름을 입력하세요"
         value={name}
         maxLength={NAME_MAX}
         error={error}
-        autoFocus
-        onChange={(event) => setName(event.target.value)}
+        onBeforeInput={(event) => {
+          const input = event.nativeEvent as InputEvent;
+          if (name.length >= NAME_MAX && input.data) {
+            event.preventDefault();
+            setLimitError(true);
+          }
+        }}
+        onChange={(event) => {
+          const next = event.target.value;
+          setName(next.slice(0, NAME_MAX));
+          setLimitError(next.length > NAME_MAX);
+        }}
         onKeyDown={(event) => {
+          if (name.length >= NAME_MAX && event.key.length === 1) setLimitError(true);
           if (event.key === 'Enter' && valid) onSubmit(trimmed);
         }}
       />
-      <Button style={{ marginTop: 8 }} disabled={!valid} onClick={() => onSubmit(trimmed)}>
+      <Button className="folder-name-sheet__button" disabled={!valid} onClick={() => onSubmit(trimmed)}>
         {mode === 'create' ? '만들기' : '수정하기'}
       </Button>
     </Sheet>
@@ -294,7 +321,8 @@ export function DeleteRoomModal({
 }) {
   return (
     <Modal
-      art={<Mascot pose="alert" size={170} />}
+      className="delete-room-modal"
+      art={<MascotImage name="alert" size={105} />}
       title="방을 삭제할까요?"
       desc={
         <>
@@ -330,7 +358,8 @@ export function DeletePhotosModal({
 }) {
   return (
     <Modal
-      art={<Mascot pose="trash" size={175} />}
+      className="delete-photos-modal"
+      art={<MascotImage name="trash" size={105} />}
       title={`사진 ${count}장을 삭제할까요?`}
       desc={
         <>
@@ -366,7 +395,8 @@ export function DeleteFolderModal({
 }) {
   return (
     <Modal
-      art={<Mascot pose="folderX" size={180} />}
+      className="delete-folder-modal"
+      art={<MascotImage name="folderDelete" size={105} />}
       title={`'${folderName}' 폴더를 삭제할까요?`}
       desc={
         <>
@@ -400,7 +430,8 @@ export function UploadFailModal({
 }) {
   return (
     <Modal
-      art={<Mascot pose="sad" size={165} />}
+      className="upload-fail-modal"
+      art={<MascotImage name="downloadFail" size={105} />}
       title={`앗, ${failures.length}장을 못 올렸어요`}
       desc={
         <>
@@ -412,15 +443,15 @@ export function UploadFailModal({
       onClose={onClose}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="quiet" onClick={onClose}>
             닫기
           </Button>
           <Button onClick={onRetry}>실패만 재시도</Button>
         </>
       }
     >
-      <div className="fail-list">
-        {failures.slice(0, 5).map((item) => (
+      <div className="fail-list" tabIndex={0} aria-label="업로드에 실패한 파일 목록">
+        {failures.map((item) => (
           <div className="fail-row" key={item.id}>
             <span className="fail-row__name">{item.name}</span>
             <span className="fail-row__reason">{item.error}</span>
@@ -443,7 +474,8 @@ export function DownloadFailModal({
 }) {
   return (
     <Modal
-      art={<Mascot pose="sad" size={165} />}
+      className="download-fail-modal"
+      art={<MascotImage name="downloadFail" size={105} />}
       title={`앗, ${count}장을 못받았어요`}
       desc={
         <>
@@ -486,8 +518,8 @@ export function SizeLimitModal({
       onClose={onClose}
       actions={<Button onClick={onClose}>확인</Button>}
     >
-      <div style={{ marginTop: 18 }}>
-        {files.slice(0, 4).map((file) => (
+      <div className="size-list" tabIndex={0} aria-label="용량을 초과한 파일 목록">
+        {files.map((file) => (
           <div className="size-row" key={file.name}>
             <span className="size-row__thumb">
               <IconFile size={18} />
@@ -500,7 +532,6 @@ export function SizeLimitModal({
             </div>
           </div>
         ))}
-        {files.length > 4 && <p className="hint">외 {files.length - 4}개</p>}
       </div>
       <div className="limit-chips">
         <span className="limit-chip">🖼️ 이미지 ~10MB</span>
@@ -538,21 +569,21 @@ export function QrModal({
     };
   }, [url]);
 
-  const pretty = useMemo(() => code.split('').join(' '), [code]);
-
   return (
-    <Modal align="left" title="QR 또는 코드로 참여" onClose={onClose}>
+    <Modal className="qr-modal" align="left" title="QR 또는 코드로 참여" onClose={onClose}>
       <div className="qr-card">
         {dataUrl ? <img src={dataUrl} alt={`${code} 참여 QR 코드`} /> : <div style={{ height: 210 }} />}
       </div>
-      <p className="field__label">참여 코드</p>
-      <button type="button" className="code-copy" onClick={onCopyCode}>
-        <span className="code-copy__value">{pretty}</span>
-        <span className="code-copy__action">
-          <IconCopy size={17} />
-          복사
-        </span>
-      </button>
+      <div className="qr-modal__code">
+        <p className="field__label">참여 코드</p>
+        <button type="button" className="code-copy" onClick={onCopyCode}>
+          <span className="code-copy__value">{code}</span>
+          <span className="code-copy__action">
+            <IconCopy size={17} />
+            복사
+          </span>
+        </button>
+      </div>
     </Modal>
   );
 }

@@ -9,6 +9,7 @@ import { Mascot, MascotImage } from '../../components/Mascot';
 import { firebaseEnabled } from '../../lib/firebase';
 import { Popover, PopoverItem, PopoverSeparator } from '../../components/ui';
 import {
+  IconChevronUp,
   IconFolderEdit,
   IconFolderPlus,
   IconFolderX,
@@ -95,8 +96,15 @@ export function RoomScreen({
   const [popover, setPopover] = useState<PopoverKind>(null);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [folderMovePending, setFolderMovePending] = useState<{
+    folderId: string;
+    photoIds: string[];
+  } | null>(null);
   const [demo, setDemo] = useState({ open: false, failUpload: false, failDownload: false });
   const fileInput = useRef<HTMLInputElement>(null);
+  const galleryScrollRef = useRef<HTMLDivElement>(null);
+  const scrollTopTimer = useRef<number | null>(null);
   const warned = useRef(false);
 
   const isHost = room.hostId === me.id;
@@ -129,6 +137,23 @@ export function RoomScreen({
   const canDelete = useCallback(
     (photo: Photo) => isHost || photo.uploaderId === me.id,
     [isHost, me.id],
+  );
+
+  useEffect(() => {
+    if (!folderMovePending) return;
+    const reflected = folderMovePending.photoIds.every((id) =>
+      room.photos.some(
+        (photo) => photo.id === id && photo.folderIds.includes(folderMovePending.folderId),
+      ),
+    );
+    if (reflected) setFolderMovePending(null);
+  }, [folderMovePending, room.photos]);
+
+  useEffect(
+    () => () => {
+      if (scrollTopTimer.current !== null) window.clearTimeout(scrollTopTimer.current);
+    },
+    [],
   );
 
   /* ── 업로드 ───────────────────────────────────────── */
@@ -186,6 +211,7 @@ export function RoomScreen({
     const targets = selectedPhotos.length > 0 ? selectedPhotos : [];
     if (targets.length === 0) return;
     setOverlay(null);
+    selection.clear();
     lastDownload.current = { photos: targets, mode, toPhotos };
     void download.start(targets, mode, toPhotos);
   };
@@ -212,6 +238,7 @@ export function RoomScreen({
 
   const copyCode = async () => {
     const ok = await copyText(room.code);
+    setOverlay(null);
     toast(ok ? '참여 코드를 복사했어요.' : '코드 복사에 실패했어요.', ok ? 'success' : 'warn');
   };
 
@@ -220,10 +247,10 @@ export function RoomScreen({
     actions.addFolder(folder);
     setOverlay(null);
     if (moveAfter && selectedPhotos.length > 0) {
-      actions.moveToFolder(
-        selectedPhotos.map((p) => p.id),
-        folder.id,
-      );
+      const ids = selectedPhotos.map((p) => p.id);
+      setFolderMovePending({ folderId: folder.id, photoIds: ids });
+      setFilter('all');
+      actions.moveToFolder(ids, folder.id);
       selection.clear();
       toast(`사진 ${selectedPhotos.length}장이 폴더에 추가되었어요.`);
     } else {
@@ -234,6 +261,11 @@ export function RoomScreen({
 
   const moveSelected = (folderId: string | null) => {
     const ids = selectedPhotos.map((p) => p.id);
+    if (folderId) {
+      setActiveFolderId(folderId);
+      setFilter('all');
+      setFolderMovePending({ folderId, photoIds: ids });
+    }
     actions.moveToFolder(ids, folderId);
     selection.clear();
     setOverlay(null);
@@ -246,7 +278,7 @@ export function RoomScreen({
 
   /* ── 렌더 ─────────────────────────────────────────── */
   return (
-    <div className="screen">
+    <div className="screen room-screen" data-empty={room.photos.length === 0}>
       <RoomHeader
         displayName={me.name || '나'}
         isHost={isHost}
@@ -276,6 +308,15 @@ export function RoomScreen({
 
       <div
         className="gallery-scroll"
+        ref={galleryScrollRef}
+        onScroll={(event) => {
+          const visible = event.currentTarget.scrollTop > 240;
+          setShowScrollTop(visible);
+          if (scrollTopTimer.current !== null) window.clearTimeout(scrollTopTimer.current);
+          if (visible) {
+            scrollTopTimer.current = window.setTimeout(() => setShowScrollTop(false), 1600);
+          }
+        }}
         onDragOver={(event) => {
           if (!canUpload) return;
           event.preventDefault();
@@ -299,7 +340,11 @@ export function RoomScreen({
           </div>
         )}
 
-        {photos.length === 0 ? (
+        {folderMovePending?.folderId === activeFolderId ? (
+          <div className="folder-loading" role="status" aria-label="폴더로 사진 이동 중">
+            <span className="folder-loading__spinner" aria-hidden="true" />
+          </div>
+        ) : photos.length === 0 ? (
           <EmptyState
             folderName={activeFolder?.name}
             filter={filter}
@@ -316,6 +361,19 @@ export function RoomScreen({
           />
         )}
       </div>
+
+      <button
+        type="button"
+        className="scroll-top"
+        data-visible={showScrollTop}
+        data-raised={selection.count > 0 || Boolean(transfer) || !online}
+        aria-label="맨 위로"
+        aria-hidden={!showScrollTop}
+        tabIndex={showScrollTop ? 0 : -1}
+        onClick={() => galleryScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+      >
+        <IconChevronUp size={14} />
+      </button>
 
       <input
         ref={fileInput}
@@ -355,20 +413,24 @@ export function RoomScreen({
 
       {!online && !transfer && <NetworkBanner />}
 
-      {/* 전송 중에는 하단이 붐비므로 잠시 감춥니다 */}
       {!transfer && (
-      <DemoPanel
-        state={demo}
-        raised={selection.count > 0 || !online}
-        onChange={setDemo}
-        onExpireSoon={() => actions.patchRoom({ expiresAt: Date.now() + 59 * 60 * 1000 })}
-        onExpireNow={() => actions.patchRoom({ expiresAt: Date.now() - 1000 })}
-      />
+        <DemoPanel
+          state={demo}
+          raised={selection.count > 0 || !online}
+          onChange={setDemo}
+          onExpireSoon={() => actions.patchRoom({ expiresAt: Date.now() + 59 * 60 * 1000 })}
+          onExpireNow={() => actions.patchRoom({ expiresAt: Date.now() - 1000 })}
+        />
       )}
 
       {/* ── 팝오버 ── */}
       {popover?.kind === 'share' && (
-        <Popover anchorRect={popover.rect} width={262} onClose={() => setPopover(null)}>
+        <Popover
+          anchorRect={popover.rect}
+          width={262}
+          alignRight={30}
+          onClose={() => setPopover(null)}
+        >
           <PopoverItem icon={<IconLink size={20} />} onClick={shareLink}>
             링크 공유
             <small>앨범에 바로 참여하는 링크</small>
@@ -400,6 +462,7 @@ export function RoomScreen({
           </PopoverItem>
           <PopoverItem
             icon={<IconTrash size={20} />}
+            data-tone="danger"
             disabled={!isHost}
             onClick={() => {
               setPopover(null);
@@ -561,7 +624,7 @@ export function RoomScreen({
           canDelete={canDelete(photos[lightboxIndex])}
           onIndexChange={(next) => setLightboxId(photos[next].id)}
           onToggleSelect={() => selection.toggle(photos[lightboxIndex].id)}
-          onDelete={() => setOverlay({ k: 'deletePhotos', ids: [photos[lightboxIndex].id] })}
+          onDelete={() => removePhotos([photos[lightboxIndex].id])}
           onDownload={() => downloadOne(photos[lightboxIndex])}
           onClose={() => setLightboxId(null)}
         />
@@ -585,11 +648,11 @@ function EmptyState({
 }) {
   if (folderName) {
     return (
-      <div className="empty">
-        <Mascot pose="peek" size={210} />
+      <div className="empty empty--folder">
+        <Mascot pose="peek" size={150} />
         <h2 className="empty__title">‘{folderName}’ 폴더가 비어있어요</h2>
         <p className="empty__desc">
-          아직 이 폴더는 비어있어요
+          이 폴더는 비어있어요
           <br />첫 장을 올려서 채워보세요
         </p>
       </div>
@@ -598,8 +661,8 @@ function EmptyState({
 
   if (hasAny && filter !== 'all') {
     return (
-      <div className="empty">
-        <Mascot pose="peek" size={200} />
+      <div className="empty empty--folder">
+        <Mascot pose="peek" size={150} />
         <h2 className="empty__title">
           {filter === 'mine' ? '내가 올린 사진이 없어요' : '다른 사람이 올린 사진이 없어요'}
         </h2>
@@ -609,11 +672,9 @@ function EmptyState({
   }
 
   return (
-    <div className="empty">
-      <Mascot pose="hole" size={230} />
-      <h2 className="empty__title" style={{ marginTop: 24 }}>
-        아직 사진이 없어요
-      </h2>
+    <div className="empty empty--room">
+      <MascotImage name="emptyRoom" size={230} />
+      <h2 className="empty__title">아직 사진이 없어요</h2>
       <p className="empty__desc">
         {canUpload ? (
           <>

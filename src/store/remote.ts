@@ -170,6 +170,7 @@ export function subscribeRoom(code: string, onChange: (room: Room | null) => voi
 export async function patchRoomRemote(code: string, patch: Partial<Room>): Promise<void> {
   const data: Record<string, unknown> = {};
   if (patch.name !== undefined) data.name = patch.name;
+  if (patch.hostName !== undefined) data.hostName = patch.hostName;
   if (patch.uploadPolicy !== undefined) data.uploadPolicy = patch.uploadPolicy;
   if (patch.expiresAt !== undefined) data.expiresAt = patch.expiresAt;
   if (patch.deletedAt !== undefined) data.deletedAt = patch.deletedAt;
