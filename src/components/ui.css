@@ -30,6 +30,13 @@
   font-size: 18px;
   font-weight: 600;
 }
+
+/* 카카오톡 인앱 브라우저처럼 세로가 짧은 모바일 화면 */
+@media (max-width: 480px) and (min-aspect-ratio: 3/5) {
+  .btn--menu {
+    height: 55px;
+  }
+}
 .btn--primary {
   background: var(--orange);
   color: #fff;
