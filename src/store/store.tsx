@@ -334,12 +334,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const item: Toast = { id: uid('t_'), message, tone };
     setToasts((prev) => [...prev.filter((t) => t.message !== message), item]);
     window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== item.id));
+      setToasts((prev) =>
+        prev.map((t) => (t.id === item.id ? { ...t, exiting: true } : t)),
+      );
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== item.id));
+      }, 400);
     }, 3400);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)));
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 400);
   }, []);
 
   const setName = useCallback(

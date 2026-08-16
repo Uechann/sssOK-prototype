@@ -62,6 +62,12 @@ export const IconClock = (p: IconProps) => (
   </Svg>
 );
 
+export const IconCrown = ({ size = 24, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path d="M5 18 3 6l5.3 4.1L12 3l3.7 7.1L21 6l-2 12H5Zm0 2v-1h14v1H5Z" fill="currentColor" />
+  </svg>
+);
+
 export const IconCheck = (p: IconProps) => (
   <Svg {...p} strokeWidth={p.strokeWidth ?? 2.6}>
     <path d="M5 12.5 10 17.5 19 7.5" />
@@ -110,6 +116,12 @@ export const IconChevronRight = (p: IconProps) => (
 export const IconChevronDown = (p: IconProps) => (
   <Svg {...p} strokeWidth={p.strokeWidth ?? 2.2}>
     <path d="M5 9.5 12 16l7-6.5" />
+  </Svg>
+);
+
+export const IconChevronUp = (p: IconProps) => (
+  <Svg {...p} strokeWidth={p.strokeWidth ?? 2.2}>
+    <path d="M5 14.5 12 8l7 6.5" />
   </Svg>
 );
 

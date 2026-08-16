@@ -83,6 +83,7 @@ export interface Toast {
   id: string;
   message: string;
   tone: 'success' | 'warn';
+  exiting?: boolean;
 }
 
 export type PhotoFilter = 'all' | 'mine' | 'others';

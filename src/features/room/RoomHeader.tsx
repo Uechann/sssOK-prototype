@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { Folder, PhotoFilter } from '../../types';
-import { IconCheck, IconClock, IconLink, IconMore, IconPlus } from '../../components/Icons';
+import { IconCheck, IconClock, IconCrown, IconLink, IconMore, IconPlus } from '../../components/Icons';
 import { IconButton } from '../../components/ui';
 import { formatRemaining } from '../../lib/format';
 import './room.css';
@@ -53,9 +53,9 @@ export function RoomHeader({
   return (
     <div className="room-head">
       <div className="room-head__top">
-        <span className={`chip ${isHost ? 'chip--host' : ''}`}>
-          {displayName}
-          {isHost && ' · 방장'}
+        <span className="chip" data-host={isHost}>
+          {isHost && <IconCrown size={12} />}
+          <span className="chip__name">{displayName}</span>
         </span>
         <span className="room-head__timer" data-urgent={urgent}>
           <IconClock size={15} />
@@ -70,14 +70,14 @@ export function RoomHeader({
           ref={shareRef}
           onClick={() => shareRef.current && onOpenShare(shareRef.current.getBoundingClientRect())}
         >
-          <IconLink size={22} />
+          <IconLink size={24} />
         </IconButton>
         <IconButton
           label="메뉴"
           ref={menuRef}
           onClick={() => menuRef.current && onOpenMenu(menuRef.current.getBoundingClientRect())}
         >
-          <IconMore size={22} />
+          <IconMore size={24} />
         </IconButton>
       </div>
 
@@ -105,36 +105,38 @@ export function RoomHeader({
             <span className="folder-tab__count">{countInFolder(folder.id)}</span>
           </button>
         ))}
-        <IconButton label="폴더 추가" onClick={onAddFolder} style={{ width: 32, height: 32 }}>
+        <IconButton label="폴더 추가" className="folder-add" onClick={onAddFolder}>
           <IconPlus size={20} />
         </IconButton>
       </div>
 
-      <div className="filter-row" role="tablist" aria-label="사진 필터">
-        {FILTERS.map((item) => (
+      {totalCount > 0 && (
+        <div className="filter-row" role="tablist" aria-label="사진 필터">
+          {FILTERS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              className="filter-tab"
+              aria-selected={filter === item.value}
+              onClick={() => onChangeFilter(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
           <button
-            key={item.value}
             type="button"
-            role="tab"
-            className="filter-tab"
-            aria-selected={filter === item.value}
-            onClick={() => onChangeFilter(item.value)}
+            className="select-all"
+            aria-pressed={allSelected}
+            onClick={onToggleSelectAll}
           >
-            {item.label}
+            전체 선택
+            <span className="select-all__mark">
+              <IconCheck size={13} />
+            </span>
           </button>
-        ))}
-        <button
-          type="button"
-          className="select-all"
-          aria-pressed={allSelected}
-          onClick={onToggleSelectAll}
-        >
-          전체 선택
-          <span className="select-all__mark">
-            <IconCheck size={13} />
-          </span>
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

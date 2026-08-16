@@ -31,6 +31,14 @@ export function Button({
   );
 }
 
+/** 첫 화면처럼 주요 경로를 고르는 큰 메뉴 버튼 */
+export function MenuButton({
+  className = '',
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  return <Button className={`btn--menu ${className}`} {...rest} />;
+}
+
 export const IconButton = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -184,6 +192,7 @@ export function Modal({
   art,
   align = 'center',
   hideClose,
+  className = '',
   onClose,
   children,
   actions,
@@ -194,6 +203,7 @@ export function Modal({
   art?: ReactNode;
   align?: 'center' | 'left';
   hideClose?: boolean;
+  className?: string;
   onClose?: () => void;
   children?: ReactNode;
   actions?: ReactNode;
@@ -202,7 +212,7 @@ export function Modal({
   return (
     <div className="overlay overlay--center" onClick={onClose} role="presentation">
       <div
-        className="modal"
+        className={`modal ${className}`}
         data-align={align}
         role="dialog"
         aria-modal="true"
@@ -233,6 +243,7 @@ export function Sheet({
   onClose,
   grabber = true,
   dismissible = true,
+  className = '',
   children,
 }: {
   title: ReactNode;
@@ -241,19 +252,63 @@ export function Sheet({
   onClose: () => void;
   grabber?: boolean;
   dismissible?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   const close = dismissible ? onClose : undefined;
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; startY: number; delta: number } | null>(null);
   useLockedFocus(true, close);
+
+  const finishDrag = (pointerId: number) => {
+    const drag = dragRef.current;
+    const sheet = sheetRef.current;
+    if (!drag || drag.pointerId !== pointerId || !sheet) return;
+    dragRef.current = null;
+
+    if (drag.delta >= 80 && close) {
+      sheet.style.transition = 'transform 180ms var(--ease)';
+      sheet.style.transform = 'translateY(100%)';
+      window.setTimeout(close, 180);
+      return;
+    }
+
+    sheet.style.transition = 'transform 180ms var(--ease)';
+    sheet.style.transform = '';
+    window.setTimeout(() => {
+      sheet.style.transition = '';
+    }, 180);
+  };
+
   return (
     <div className="overlay overlay--bottom" onClick={close} role="presentation">
       <div
-        className="sheet"
+        ref={sheetRef}
+        className={`sheet ${className}`}
         role="dialog"
         aria-modal="true"
         onClick={(event) => event.stopPropagation()}
       >
-        {grabber && <div className="sheet__grabber" />}
+        {grabber && (
+          <div
+            className="sheet__grabber"
+            data-draggable={Boolean(close)}
+            onPointerDown={(event) => {
+              if (!close) return;
+              dragRef.current = { pointerId: event.pointerId, startY: event.clientY, delta: 0 };
+              event.currentTarget.setPointerCapture(event.pointerId);
+              if (sheetRef.current) sheetRef.current.style.transition = 'none';
+            }}
+            onPointerMove={(event) => {
+              const drag = dragRef.current;
+              if (!drag || drag.pointerId !== event.pointerId || !sheetRef.current) return;
+              drag.delta = Math.max(0, event.clientY - drag.startY);
+              sheetRef.current.style.transform = `translateY(${drag.delta}px)`;
+            }}
+            onPointerUp={(event) => finishDrag(event.pointerId)}
+            onPointerCancel={(event) => finishDrag(event.pointerId)}
+          />
+        )}
         <div className="sheet__head" data-with-desc={Boolean(desc)}>
           <h2 className="sheet__title">{title}</h2>
           {trailing}
@@ -270,11 +325,13 @@ export function Popover({
   onClose,
   children,
   width = 178,
+  alignRight,
 }: {
   anchorRect: DOMRect;
   onClose: () => void;
   children: ReactNode;
   width?: number;
+  alignRight?: number;
 }) {
   const layer = useRef<HTMLDivElement>(null);
   const [host, setHost] = useState<DOMRect | null>(null);
@@ -286,7 +343,7 @@ export function Popover({
   }, [anchorRect]);
 
   const top = anchorRect.bottom - (host?.top ?? 0) + 8;
-  const right = (host?.right ?? window.innerWidth) - anchorRect.right;
+  const right = alignRight ?? (host?.right ?? window.innerWidth) - anchorRect.right;
 
   return (
     <div className="popover-layer" ref={layer} onClick={onClose} role="presentation">
@@ -324,14 +381,19 @@ export function ToastLayer({
   toasts,
   onDismiss,
 }: {
-  toasts: { id: string; message: string; tone: 'success' | 'warn' }[];
+  toasts: { id: string; message: string; tone: 'success' | 'warn'; exiting?: boolean }[];
   onDismiss: (id: string) => void;
 }) {
   if (toasts.length === 0) return null;
   return (
     <div className="toast-layer" aria-live="polite">
       {toasts.map((toast) => (
-        <div key={toast.id} className="toast" data-tone={toast.tone}>
+        <div
+          key={toast.id}
+          className="toast"
+          data-tone={toast.tone}
+          data-exiting={toast.exiting}
+        >
           <span className="toast__icon">
             {toast.tone === 'warn' ? (
               <strong style={{ fontSize: 13, lineHeight: 1 }}>!</strong>

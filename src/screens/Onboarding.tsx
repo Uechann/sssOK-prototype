@@ -1,5 +1,5 @@
 import { Mascot } from '../components/Mascot';
-import { Button } from '../components/ui';
+import { MenuButton } from '../components/ui';
 import './entry.css';
 
 export function Onboarding({
@@ -12,7 +12,7 @@ export function Onboarding({
   return (
     <div className="onboarding">
       <div className="onboarding__body">
-        <Mascot pose="wave" size={186} className="onboarding__art" />
+        <Mascot pose="photo" size={150} className="onboarding__art" />
         <h1 className="t-display">
           사진 모으고
           <br />
@@ -25,10 +25,10 @@ export function Onboarding({
         </p>
       </div>
       <div className="onboarding__actions">
-        <Button onClick={onCreate}>사진 공유방 만들기</Button>
-        <Button variant="secondary" onClick={onJoin}>
-          코드로 입장하기
-        </Button>
+        <MenuButton onClick={onCreate}>방 만들기</MenuButton>
+        <MenuButton variant="secondary" onClick={onJoin}>
+          코드로 입장
+        </MenuButton>
       </div>
     </div>
   );

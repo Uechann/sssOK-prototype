@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type { TransferState, UploadItem, UploadStatus } from '../../types';
-import { Hopper } from './Hopper';
 import {
-  IconClose,
+  IconCheck,
   IconDownload,
   IconMoveFolder,
   IconTrash,
@@ -28,16 +27,18 @@ export function SelectionBar({
   onMove: () => void;
 }) {
   return (
-    <div className="dockbar" role="toolbar" aria-label="선택 항목 작업">
+    <div className="dockbar dockbar--selection" role="toolbar" aria-label="선택 항목 작업">
       <span className="dockbar__count">
-        선택 {count}개
         <IconButton
-          label="선택 취소"
+          label="전체 선택 취소"
           onClick={onClear}
           style={{ width: 26, height: 26, borderRadius: 8 }}
         >
-          <IconClose size={15} />
+          <span className="dockbar__checked-icon">
+            <IconCheck size={13} />
+          </span>
         </IconButton>
+        {count}개
       </span>
       <span className="dockbar__spacer" />
       <button type="button" className="dockbar__cta" onClick={onDownload}>
@@ -45,10 +46,10 @@ export function SelectionBar({
         다운로드
       </button>
       <IconButton label="삭제" tone="danger" onClick={onDelete} disabled={!canDelete}>
-        <IconTrash size={21} />
+        <IconTrash size={22} />
       </IconButton>
       <IconButton label="폴더로 이동" onClick={onMove}>
-        <IconMoveFolder size={21} />
+        <IconMoveFolder size={22} />
       </IconButton>
     </div>
   );
@@ -91,7 +92,7 @@ export function TransferBar({
           ))}
         </div>
       )}
-      <div className="dockbar" role="status" aria-live="polite">
+      <div className="dockbar dockbar--transfer" role="status" aria-live="polite">
         <button
           type="button"
           className="dockbar__ratio"
@@ -102,7 +103,7 @@ export function TransferBar({
           {transfer.done} / {transfer.total}
         </button>
         <span className="dockbar__progress">
-          <Hopper direction={transfer.kind} />
+          <span className="dockbar__spinner" aria-hidden="true" />
           {label}... {transfer.percent}%
         </span>
         <button type="button" className="dockbar__cancel" onClick={onCancel}>

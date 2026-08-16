@@ -8,10 +8,13 @@ import close from '../../img/image 22.png';
 import trash from '../../img/image 16.png';
 import alert from '../../img/image 15.png';
 import sad from '../../img/image 15 (1).png';
+import downloadFail from '../../img/image 15 download.png';
 import thumbsUp from '../../img/image 69.png';
 import waveWithPhoto from '../../img/image 70.png';
 import wave from '../../img/image 71.png';
 import peek from '../../img/image 72.png';
+import emptyRoom from '../../img/image 10.png';
+import folderDelete from '../../img/Group 6.png';
 
 export interface MascotArt {
   src: string;
@@ -41,6 +44,10 @@ export const mascots = {
   wave: art(wave, 222, 168, '손 흔드는 두더지'),
   /** 구멍에서 빼꼼 내다보는 두더지 */
   peek: art(peek, 235, 104, '구멍에서 빼꼼 내다보는 두더지'),
+  /** 빈 방에 놓인 사진 */
+  emptyRoom: art(emptyRoom, 230, 54, '빈 방에 놓인 사진'),
+  /** 폴더 삭제 안내를 든 두더지 */
+  folderDelete: art(folderDelete, 97, 74, '삭제할 사진을 든 두더지'),
   /** CLOSE 팻말을 든 두더지 */
   close: art(close, 135, 77, 'CLOSE 팻말을 든 두더지'),
   /** 사진을 휴지통에 버리는 두더지 */
@@ -49,6 +56,8 @@ export const mascots = {
   alert: art(alert, 96, 82, '경고 팻말을 든 두더지'),
   /** 놀라 당황한 두더지 */
   sad: art(sad, 106, 74, '놀라 당황한 두더지'),
+  /** 다운로드 실패 안내를 든 두더지 */
+  downloadFail: art(downloadFail, 106, 74, '느낌표 안내를 든 두더지'),
 } satisfies Record<string, MascotArt>;
 
 export type MascotName = keyof typeof mascots;

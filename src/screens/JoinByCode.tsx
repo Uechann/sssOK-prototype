@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, TextField, TopBar } from '../components/ui';
+import { MenuButton, TextField, TopBar } from '../components/ui';
 import './entry.css';
 
 const CODE_LENGTH = 8;
@@ -137,10 +137,12 @@ export function JoinByCode({
           )}
         </div>
 
-        {error && <p className="join__error">* {error}</p>}
-        <Button onClick={() => void submit()} disabled={!complete || submitting}>
+        <p className="join__error" data-visible={Boolean(error)} aria-live="polite">
+          {error ? `* ${error}` : '\u00A0'}
+        </p>
+        <MenuButton onClick={() => void submit()} disabled={!complete || submitting}>
           {submitting ? '확인 중...' : '입장하기'}
-        </Button>
+        </MenuButton>
       </div>
     </div>
   );

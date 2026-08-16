@@ -1,4 +1,5 @@
 import { mascots, type MascotName } from '../assets/mascots';
+import splashWordmark from '../../img/image 21.png';
 
 /** 쏙 마스코트(두더지).
  * 확정된 포즈는 /img 의 실제 아트를 쓰고,
@@ -166,22 +167,16 @@ function renderPose(pose: MascotPose) {
   }
 }
 
-/** 스플래시 로고 — 아치형 sssOK 워드마크 + 빼꼼 두더지 */
-export function Wordmark({ size = 220 }: { size?: number }) {
+/** 스플래시 로고 */
+export function Wordmark({ size = 320 }: { size?: number }) {
   return (
-    <div style={{ width: size, maxWidth: '100%', textAlign: 'center' }}>
-      <svg viewBox="0 0 200 66" width="100%" role="img" aria-label="쏙 sssOK" style={{ display: 'block' }}>
-        <defs>
-          {/* 완만한 아치 — 글자가 과하게 기울지 않도록 반지름을 크게 잡습니다 */}
-          <path id="sssok-arc" d="M26 60 A210 210 0 0 1 174 60" fill="none" />
-        </defs>
-        <text fontSize="40" fontWeight="900" fill={DARK} fontFamily="inherit">
-          <textPath href="#sssok-arc" startOffset="50%" textAnchor="middle">
-            sssOK
-          </textPath>
-        </text>
-      </svg>
-      <MascotImage name="peek" size={size * 0.86} className="wordmark__art" />
-    </div>
+    <img
+      src={splashWordmark}
+      alt="쏙 sssOK"
+      width={size}
+      height={size}
+      style={{ display: 'block', width: size, maxWidth: '100%', height: 'auto' }}
+      draggable={false}
+    />
   );
 }

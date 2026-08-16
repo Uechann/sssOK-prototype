@@ -7,7 +7,6 @@ import { useStore, useRemoteRoomSync, useRoomActions } from './store/store';
 import { firebaseEnabled } from './lib/firebase';
 import { createRoomRemote, fetchRoomOnce } from './store/remote';
 import { ToastLayer } from './components/ui';
-import { Splash } from './screens/Splash';
 import { Onboarding } from './screens/Onboarding';
 import { EXPIRY_OPTIONS, RoomForm, type RoomFormValue } from './screens/RoomForm';
 import { JoinByCode } from './screens/JoinByCode';
@@ -29,9 +28,7 @@ export function App() {
     useStore();
   const { route, navigate, back } = useRouter();
   const online = useOnline();
-  const [splashDone, setSplashDone] = useState(false);
-  /** 이름을 아직 안 정한 상태에서 방을 만들려 할 때 잠시 들고 있는 값 */
-  const [pendingRoom, setPendingRoom] = useState<RoomFormValue | null>(null);
+  const [newRoomCode, setNewRoomCode] = useState<string | null>(null);
 
   // 지금 보고 있는 방 코드 — Firebase 모드에서는 이 방만 실시간 구독합니다
   const currentCode =
@@ -45,7 +42,8 @@ export function App() {
   );
 
   const createRoom = useCallback(
-    async (value: RoomFormValue, hostName: string) => {
+    async (value: RoomFormValue) => {
+      const hostName = '';
       const room: Room = {
         code: makeRoomCode(),
         name: value.name,
@@ -64,10 +62,10 @@ export function App() {
       } else {
         dispatch({ type: 'upsertRoom', room });
       }
+      setNewRoomCode(room.code);
       navigate({ name: 'room', code: room.code });
-      toast('방을 만들었어요. 링크를 공유해보세요!');
     },
-    [dispatch, me.id, navigate, toast],
+    [dispatch, me.id, navigate],
   );
 
   const content = useMemo(() => {
@@ -88,13 +86,7 @@ export function App() {
             mode="create"
             initial={{ name: '', uploadPolicy: 'everyone', expiryHours: 24, passcode: '' }}
             onBack={back}
-            onSubmit={(value) => {
-              if (!me.name) {
-                setPendingRoom(value);
-                return;
-              }
-              void createRoom(value, me.name);
-            }}
+            onSubmit={(value) => void createRoom(value)}
           />
         );
 
@@ -164,33 +156,36 @@ export function App() {
           );
         }
 
-        // 닉네임 모달 — 최초 1회
-        if (!me.name) {
-          return (
-            <>
-              <div className="screen" style={{ background: '#dedbd6' }} />
+        const needsName = newRoomCode === room.code || !me.name;
+
+        return (
+          <>
+            {needsName ? (
+              <div className="screen name-gate__backdrop" />
+            ) : (
+              <RoomScreen
+                key={room.code}
+                room={room}
+                me={me}
+                onOpenSettings={() => navigate({ name: 'settings', code: room.code })}
+                onLeaveHome={() => {
+                  deleteRoom(room.code);
+                  navigate({ name: 'onboarding' });
+                  toast('방을 삭제했어요. 30일 뒤 영구 삭제돼요.', 'warn');
+                }}
+              />
+            )}
+            {needsName && (
               <NameSheet
                 onSubmit={(name) => {
                   setName(name);
+                  actions.patchRoom({ hostName: name });
                   actions.joinRoom({ id: me.id, name });
+                  setNewRoomCode(null);
                 }}
               />
-            </>
-          );
-        }
-
-        return (
-          <RoomScreen
-            key={room.code}
-            room={room}
-            me={me}
-            onOpenSettings={() => navigate({ name: 'settings', code: room.code })}
-            onLeaveHome={() => {
-              deleteRoom(room.code);
-              navigate({ name: 'onboarding' });
-              toast('방을 삭제했어요. 30일 뒤 영구 삭제돼요.', 'warn');
-            }}
-          />
+            )}
+          </>
         );
       }
 
@@ -206,6 +201,7 @@ export function App() {
     isExpired,
     me,
     navigate,
+    newRoomCode,
     online,
     rooms,
     route,
@@ -215,24 +211,8 @@ export function App() {
 
   return (
     <div className="app-shell">
-      {!splashDone ? (
-        <Splash onDone={() => setSplashDone(true)} />
-      ) : (
-        <>
-          {content}
-          {pendingRoom && (
-            <NameSheet
-              onClose={() => setPendingRoom(null)}
-              onSubmit={(name) => {
-                setName(name);
-                void createRoom(pendingRoom, name);
-                setPendingRoom(null);
-              }}
-            />
-          )}
-          <ToastLayer toasts={toasts} onDismiss={dismissToast} />
-        </>
-      )}
+      {content}
+      <ToastLayer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
