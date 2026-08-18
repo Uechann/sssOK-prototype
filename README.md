@@ -58,6 +58,8 @@ Firebase 모드에서는 빈 온보딩 화면에서 시작합니다(방을 직�
      # 또는 구버전 CLI: gsutil cors set cors.json gs://<버킷 이름>
      ```
 
+실제로 겪은 문제와 해결 과정은 [`troubleshooting/`](troubleshooting/)에 정리해뒀습니다.
+
 ## 확인해보면 좋은 것들
 
 **실시간 동기화** — 같은 방 URL을 탭 두 개로 열고 한쪽에서 업로드하면 다른 쪽에 바로 나타납니다.

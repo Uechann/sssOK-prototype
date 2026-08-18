@@ -12,3 +12,6 @@ dist
 
 # 개인별 로컬 권한 설정 — 팀과 공유하지 않습니다
 .claude/settings.local.json
+
+# JetBrains IDE 개인 설정
+.idea/
