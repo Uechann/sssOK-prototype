@@ -6,7 +6,9 @@ export type Route =
   | { name: 'join'; code?: string }
   | { name: 'room'; code: string }
   | { name: 'settings'; code: string }
-  | { name: 'badLink' };
+  | { name: 'badLink' }
+  /** 개발자용 계측 대시보드 — 사용자 동선에는 없는 화면입니다 */
+  | { name: 'admin' };
 
 function readHash(): Route {
   const raw = window.location.hash.replace(/^#/, '');
@@ -16,6 +18,7 @@ function readHash(): Route {
 
   if (parts.length === 0) return { name: 'onboarding' };
   if (parts[0] === 'create') return { name: 'create' };
+  if (parts[0] === 'admin') return { name: 'admin' };
   if (parts[0] === 'join') return { name: 'join', code: params.get('code') ?? undefined };
   if (parts[0] === 'r' && parts[1]) {
     if (parts[2] === 'settings') return { name: 'settings', code: parts[1].toUpperCase() };
@@ -39,6 +42,8 @@ export function hrefFor(route: Route): string {
       return `#/r/${route.code}/settings`;
     case 'badLink':
       return '#/bad-link';
+    case 'admin':
+      return '#/admin';
   }
 }
 
@@ -70,6 +75,9 @@ export function useRouter() {
   return { route, navigate, back };
 }
 
-export function inviteUrl(code: string): string {
-  return `${window.location.origin}${window.location.pathname}#/r/${code}`;
+/** 초대 URL. `src`는 유입 경로 구분용 — 링크·QR·코드 중 무엇으로 들어왔는지
+ * 이 파라미터가 없으면 셋 다 같은 URL이라 대시보드에서 구분할 수 없습니다. */
+export function inviteUrl(code: string, src?: 'link' | 'qr'): string {
+  const base = `${window.location.origin}${window.location.pathname}#/r/${code}`;
+  return src ? `${base}?src=${src}` : base;
 }

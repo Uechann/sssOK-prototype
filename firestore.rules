@@ -69,6 +69,18 @@ service cloud.firestore {
       }
     }
 
+    // ── 계측 이벤트 (#/admin 대시보드) ─────────────────
+    // 한 번 쓰면 못 고치는 append-only 로그입니다.
+    // 개인 식별 정보를 담지 않기 때문에(닉네임·파일명·사진 없음, 방 코드는 해시)
+    // read 를 열어둡니다 — #/admin 은 해시 라우트라 서버에서 막을 수 없습니다.
+    match /sssok_events/{eventId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['id', 'sid', 'did', 'ts', 'kind'])
+        && request.resource.data.ts is number
+        && request.resource.data.kind is string;
+      allow update, delete: if false;
+    }
+
     // 그 외 모든 경로는 차단
     match /{document=**} {
       allow read, write: if false;

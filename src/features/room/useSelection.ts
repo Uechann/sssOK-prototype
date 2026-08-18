@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { action } from '../../lib/analytics';
 
 export interface MarqueeRect {
   left: number;
@@ -14,6 +15,49 @@ export function useSelection(orderedIds: string[]) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const anchor = useRef<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  /* ── 계측 ─────────────────────────────────────────────
+   * 선택은 "0장 → 고름 → 무언가 함(또는 안 함) → 0장"의 한 덩어리로 봅니다.
+   * 어떤 방식으로 골랐는지와, 고르고 나서 결국 무엇을 했는지를 함께 남깁니다.
+   * 고르기만 하고 아무것도 안 한 경우가 "하고 싶은 게 없었다"는 신호입니다. */
+  const episode = useRef<{ methods: Set<string>; peak: number; outcome: string } | null>(null);
+
+  const mark = useCallback((method: string) => {
+    if (!episode.current) episode.current = { methods: new Set(), peak: 0, outcome: '' };
+    episode.current.methods.add(method);
+  }, []);
+
+  /** 선택으로 실제 무언가를 했을 때 RoomScreen이 알려줍니다 */
+  const setOutcome = useCallback((name: string) => {
+    if (episode.current) episode.current.outcome = name;
+  }, []);
+
+  const endEpisode = useCallback((fallback: string) => {
+    const current = episode.current;
+    if (!current || current.peak === 0) {
+      episode.current = null;
+      return;
+    }
+    action('selection.end', {
+      methods: [...current.methods].sort().join('+') || 'unknown',
+      peak: current.peak,
+      outcome: current.outcome || fallback,
+    });
+    episode.current = null;
+  }, []);
+
+  useEffect(() => {
+    const size = selected.size;
+    if (size > 0) {
+      if (!episode.current) episode.current = { methods: new Set(), peak: 0, outcome: '' };
+      episode.current.peak = Math.max(episode.current.peak, size);
+    } else if (episode.current) {
+      endEpisode('none');
+    }
+  }, [selected, endEpisode]);
+
+  // 선택해둔 채로 화면을 떠난 경우도 "아무것도 안 함"입니다
+  useEffect(() => () => endEpisode('left'), [endEpisode]);
 
   // 화면에서 사라진 사진은 선택에서도 빼줍니다
   useEffect(() => {
@@ -31,11 +75,13 @@ export function useSelection(orderedIds: string[]) {
   }, []);
 
   const selectAll = useCallback(() => {
+    mark('all');
     setSelected(new Set(orderedIds));
-  }, [orderedIds]);
+  }, [mark, orderedIds]);
 
   const toggle = useCallback(
     (id: string, options?: { shift?: boolean }) => {
+      mark(options?.shift ? 'range' : 'single');
       setSelected((prev) => {
         const next = new Set(prev);
         if (options?.shift && anchor.current) {
@@ -53,7 +99,7 @@ export function useSelection(orderedIds: string[]) {
         return next;
       });
     },
-    [orderedIds],
+    [mark, orderedIds],
   );
 
   const setMany = useCallback((ids: string[], on: boolean) => {
@@ -152,6 +198,7 @@ export function useSelection(orderedIds: string[]) {
         const width = Math.abs(currentX - start.x);
         const height = Math.abs(currentY - start.y);
         if (!moved && width + height < 6) return;
+        if (!moved) mark('marquee');
         moved = true;
 
         setMarquee({ left, top, width, height });
@@ -192,7 +239,7 @@ export function useSelection(orderedIds: string[]) {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [clear, idsInRect, selected],
+    [clear, idsInRect, mark, selected],
   );
 
   const suppressMarqueeClick = useRef(false);
@@ -214,6 +261,7 @@ export function useSelection(orderedIds: string[]) {
 
   const onSlideStart = useCallback(
     (id: string, clientX: number, clientY: number) => {
+      mark('slide');
       const on = !selected.has(id);
       const base = new Set(selected);
       const next = new Set(base);
@@ -238,7 +286,7 @@ export function useSelection(orderedIds: string[]) {
       };
       state.frame = requestAnimationFrame(autoScroll);
     },
-    [selected],
+    [mark, selected],
   );
 
   const applySlideRange = useCallback(
@@ -281,6 +329,7 @@ export function useSelection(orderedIds: string[]) {
     clear,
     selectAll,
     setMany,
+    setOutcome,
     gridRef,
     marquee,
     onMarqueeStart,

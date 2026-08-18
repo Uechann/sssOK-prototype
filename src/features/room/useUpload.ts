@@ -4,6 +4,7 @@ import { uid } from '../../lib/format';
 import { blobStore } from '../../lib/idb';
 import { FIRESTORE_INLINE_BUDGET, kindOf, optimize, overLimitReason } from '../../lib/media';
 import { firebaseEnabled } from '../../lib/firebase';
+import { action, fail } from '../../lib/analytics';
 import { uploadPhotoRemote } from '../../store/remote';
 
 export interface OversizedFile {
@@ -98,6 +99,7 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
       canceled.current = false;
 
       const total = queue.length;
+      const startedAt = Date.now();
       const uploaded: Photo[] = [];
       const failed: UploadItem[] = [];
       const folderIds = targetFolderId ? [targetFolderId] : [];
@@ -118,6 +120,12 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
           patch(item.id, { status: 'done', progress: 100 });
         } catch (error) {
           const message = error instanceof Error ? error.message : '알 수 없는 오류';
+          // 사유별로 남깁니다 — 영상만 실패하는지, 특정 용량에서 무너지는지 여기서 갈립니다
+          fail('upload.file', {
+            reason: message,
+            kind: item.kind,
+            sizeKb: Math.round(item.size / 1024),
+          });
           patch(item.id, { status: 'failed', error: message });
           failed.push({ ...item, status: 'failed', error: message });
         }
@@ -132,6 +140,12 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         });
       }
 
+      action('upload.done', {
+        uploaded: uploaded.length,
+        failed: failed.length,
+        canceled: canceled.current,
+        ms: Date.now() - startedAt,
+      });
       if (uploaded.length > 0) onUploaded(uploaded);
       setFailures(failed);
       setTransfer(null);
@@ -154,6 +168,7 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         if (!kind) continue; // 이미지·영상만
         const reason = overLimitReason(file, kind);
         if (reason) {
+          fail('upload.oversize', { reason, kind, sizeKb: Math.round(file.size / 1024) });
           tooBig.push({ name: file.name, size: file.size, reason });
           continue;
         }
@@ -169,6 +184,12 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
       }
 
       setOversized(tooBig);
+      action('upload.start', {
+        count: queue.length,
+        images: queue.filter((q) => q.kind === 'image').length,
+        videos: queue.filter((q) => q.kind === 'video').length,
+        rejected: tooBig.length,
+      });
       if (queue.length === 0) return null;
       setItems(queue);
       return run(queue);
@@ -187,11 +208,13 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
     }));
     setFailures([]);
     if (retry.length === 0) return null;
+    action('upload.retry', { count: retry.length });
     setItems(retry);
     return run(retry);
   }, [failures, run]);
 
   const cancel = useCallback(() => {
+    action('upload.cancel');
     canceled.current = true;
   }, []);
 
