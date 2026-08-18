@@ -1,16 +1,24 @@
 # 영상 다운로드 CORS 오류 트러블슈팅
 
+> **상태 (2026-08-18 기준): 아직 미해결.** 아래 "문제 해결"에 안내한 CORS 재설정이 실제 버킷에
+> 적용되지 않았습니다. `curl`로 재확인한 결과 여전히 `access-control-allow-origin` 헤더가
+> 응답에 없습니다. 이 문서의 "문제 해결" 단계를 실제로 수행해야 합니다 — 문서를 읽는 것만으로는
+> 고쳐지지 않고, Cloud Console/`gcloud`에서 버킷 CORS 설정을 직접 바꿔야 합니다(이 저장소의
+> 코드나 Claude가 대신 실행할 수 없는 단계입니다).
+
 ## 현상
 
 - 영상 **재생**(라이트박스에서 보기)은 정상 동작한다.
 - 영상 **다운로드**(개별 저장 · `.zip` 일괄 다운로드)만 실패한다. 앱에는 "앗, 1장을 못받았어요" 실패 모달이 뜬다.
-- 브라우저 콘솔에는 아래와 같은 에러가 찍힌다.
+- 브라우저 콘솔에는 아래와 같은 에러가 찍힌다. (실제 재현 로그 — 2026-08-18, `https://sssok-prototype.vercel.app`)
 
 ```
-Access to fetch at 'https://firebasestorage.googleapis.com/v0/b/<버킷>/o/sssok%2F<방코드>%2F<사진id>%2F<파일명>?alt=media&token=...'
-from origin 'https://demo.ssssok.com' has been blocked by CORS policy:
+Access to fetch at 'https://firebasestorage.googleapis.com/v0/b/share-drop-621d1.firebasestorage.app/o/sssok%2FJTD35D3L%2Fp_7prdrgp727jd%2F...mov?alt=media&token=...'
+from origin 'https://sssok-prototype.vercel.app' has been blocked by CORS policy:
 No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
+
+처음 발견했을 때는 `https://demo.ssssok.com`에서 재현했고, 이번엔 `https://sssok-prototype.vercel.app`에서 실제 업로드된 `.mov` 파일로 재현됐다 — **도메인이나 파일 종류 문제가 아니라 버킷 CORS 설정 자체가 안 바뀐 것**임을 뜻한다.
 
 ## 원인
 
@@ -22,7 +30,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
 ```bash
 curl -sS -D - -o /dev/null \
-  -H "Origin: https://demo.ssssok.com" \
+  -H "Origin: https://sssok-prototype.vercel.app" \
   "https://firebasestorage.googleapis.com/v0/b/<버킷>/o/<인코딩된 경로>?alt=media&token=<토큰>"
 ```
 
@@ -44,7 +52,7 @@ gsutil cors get gs://<버킷 이름>
 
 ### 2. `GET`을 포함해 CORS 재설정
 
-저장소 루트의 [`cors.json`](cors.json)에는 이미 `GET`이 포함돼 있다. 이 파일 그대로 다시 적용한다.
+저장소 루트의 [`cors.json`](../cors.json)에는 이미 `GET`이 포함돼 있다. 이 파일 그대로 다시 적용한다.
 
 ```bash
 gcloud storage buckets update gs://<버킷 이름> --cors-file=cors.json
