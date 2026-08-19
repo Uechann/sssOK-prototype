@@ -178,7 +178,6 @@ export function useSelection(orderedIds: string[]) {
       const base = event.shiftKey || event.metaKey ? new Set(selected) : new Set<string>();
       const hostRect = grid.getBoundingClientRect();
       const scrollHost = grid.closest<HTMLElement>('.gallery-scroll');
-      const startedOnTile = Boolean((event.target as HTMLElement).closest('[data-photo-id]'));
       const startX = event.clientX - hostRect.left;
       const startY = event.clientY - hostRect.top;
       dragState.current = { x: startX, y: startY, base };
@@ -225,8 +224,6 @@ export function useSelection(orderedIds: string[]) {
       };
 
       const onUp = () => {
-        // 빈 공간 클릭(드래그 없이) → 선택 해제
-        if (!moved && !startedOnTile) clear();
         if (moved) suppressMarqueeClick.current = true;
         dragState.current = null;
         cancelAnimationFrame(frame);
@@ -239,7 +236,7 @@ export function useSelection(orderedIds: string[]) {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [clear, idsInRect, mark, selected],
+    [idsInRect, mark, selected],
   );
 
   const suppressMarqueeClick = useRef(false);

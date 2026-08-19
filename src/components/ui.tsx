@@ -309,6 +309,16 @@ export function Sheet({
             onPointerCancel={(event) => finishDrag(event.pointerId)}
           />
         )}
+        {close && (
+          <button
+            type="button"
+            className="sheet__desktop-close"
+            aria-label="닫기"
+            onClick={close}
+          >
+            <IconClose size={20} />
+          </button>
+        )}
         <div className="sheet__head" data-with-desc={Boolean(desc)}>
           <h2 className="sheet__title">{title}</h2>
           {trailing}

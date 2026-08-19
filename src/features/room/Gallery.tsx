@@ -30,11 +30,17 @@ function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideSt
       aria-pressed={selected}
       aria-label={`${photo.uploaderName}님이 올린 ${photo.name}`}
       onClick={(event) => {
-        // 웹: 클릭=선택 / 더블클릭=자세히 보기, 모바일: 탭=자세히 보기
-        if (desktop) onToggle(event.shiftKey);
-        else onOpen();
+        if (!desktop) {
+          onOpen();
+          return;
+        }
+        // 첫 클릭은 즉시 선택하고, 더블클릭의 두 번째 click은 토글하지 않습니다.
+        if (event.detail === 1) onToggle(event.shiftKey);
       }}
-      onDoubleClick={() => desktop && onOpen()}
+      onDoubleClick={() => {
+        if (!desktop) return;
+        onOpen();
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') onOpen();
         if (event.key === ' ') {
@@ -140,7 +146,11 @@ export function Gallery({
             if (selection.consumeMarqueeClick()) return;
             selection.toggle(photo.id, { shift });
           }}
-          onOpen={() => onOpen(photo.id)}
+          onOpen={() => {
+            // PC 드래그 선택 직후 발생하는 click은 상세 열기로 이어지지 않게 합니다.
+            if (selection.consumeMarqueeClick()) return;
+            onOpen(photo.id);
+          }}
           onSlideStart={(clientX, clientY) => selection.onSlideStart(photo.id, clientX, clientY)}
         />
       ))}
