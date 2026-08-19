@@ -11,13 +11,22 @@ interface TileProps {
   photo: Photo;
   mine: boolean;
   selected: boolean;
+  desktop: boolean;
   onToggle: (shift: boolean) => void;
   onOpen: () => void;
   onSlideStart: (clientX: number, clientY: number) => void;
 }
 
-function PhotoTile({ photo, mine, selected, onToggle, onOpen, onSlideStart }: TileProps) {
+function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideStart }: TileProps) {
   const lastTouchAt = useRef(0);
+  const clickTimer = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clickTimer.current !== null) window.clearTimeout(clickTimer.current);
+    },
+    [],
+  );
 
   return (
     <div
@@ -28,9 +37,27 @@ function PhotoTile({ photo, mine, selected, onToggle, onOpen, onSlideStart }: Ti
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`${photo.uploaderName}님이 올린 ${photo.name}`}
-      // PC·모바일 모두 사진 본문 클릭은 자세히 보기로 통일합니다.
-      // 선택은 체크 버튼과 PC 드래그 영역 선택으로만 처리합니다.
-      onClick={onOpen}
+      onClick={(event) => {
+        if (!desktop) {
+          onOpen();
+          return;
+        }
+        // 더블클릭과 구분한 뒤 단일 클릭일 때만 선택합니다.
+        if (clickTimer.current !== null) window.clearTimeout(clickTimer.current);
+        const shift = event.shiftKey;
+        clickTimer.current = window.setTimeout(() => {
+          clickTimer.current = null;
+          onToggle(shift);
+        }, 220);
+      }}
+      onDoubleClick={() => {
+        if (!desktop) return;
+        if (clickTimer.current !== null) {
+          window.clearTimeout(clickTimer.current);
+          clickTimer.current = null;
+        }
+        onOpen();
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') onOpen();
         if (event.key === ' ') {
@@ -131,6 +158,7 @@ export function Gallery({
           photo={photo}
           mine={photo.uploaderId === meId}
           selected={selection.isSelected(photo.id)}
+          desktop={desktop}
           onToggle={(shift) => {
             if (selection.consumeMarqueeClick()) return;
             selection.toggle(photo.id, { shift });
