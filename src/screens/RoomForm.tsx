@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { UploadPolicy } from '../types';
+import type { ExpiryHours, UploadPolicy } from '../types';
 import { Mascot } from '../components/Mascot';
 import { MenuButton, Segment, TextField, TopBar } from '../components/ui';
 import './entry.css';
@@ -8,11 +8,11 @@ export interface RoomFormValue {
   name: string;
   uploadPolicy: UploadPolicy;
   /** 만료까지 남길 시간(시간 단위) */
-  expiryHours: number;
+  expiryHours: ExpiryHours;
   passcode: string;
 }
 
-export const EXPIRY_OPTIONS = [6, 12, 24];
+export const EXPIRY_OPTIONS: ExpiryHours[] = [24, 72];
 const NAME_MAX = 20;
 
 export function RoomForm({
@@ -28,6 +28,7 @@ export function RoomForm({
 }) {
   const [name, setName] = useState(initial.name);
   const [uploadPolicy, setUploadPolicy] = useState<UploadPolicy>(initial.uploadPolicy);
+  const [expiryHours, setExpiryHours] = useState<ExpiryHours>(initial.expiryHours);
   const [touched, setTouched] = useState(false);
   const [limitError, setLimitError] = useState(false);
 
@@ -42,7 +43,7 @@ export function RoomForm({
     onSubmit({
       name: trimmed,
       uploadPolicy,
-      expiryHours: initial.expiryHours,
+      expiryHours,
       passcode: initial.passcode,
     });
   };
@@ -92,6 +93,18 @@ export function RoomForm({
               options={[
                 { value: 'everyone', label: '누구나' },
                 { value: 'host', label: '방장만' },
+              ]}
+            />
+          </div>
+
+          <div className="form-block">
+            <span className="form-block__label">방 만료 시간</span>
+            <Segment<ExpiryHours>
+              value={expiryHours}
+              onChange={setExpiryHours}
+              options={[
+                { value: 24, label: '1일' },
+                { value: 72, label: '3일' },
               ]}
             />
           </div>

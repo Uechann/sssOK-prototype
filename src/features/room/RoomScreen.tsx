@@ -42,6 +42,19 @@ import { useUpload } from './useUpload';
 import { canSaveToPhotos, useDownload, type DownloadMode } from './useDownload';
 import './room.css';
 
+// 내부 QA용 시나리오는 기능을 보존하되 사용자 화면에서는 노출하지 않습니다.
+const SHOW_DEMO_SCENARIOS = false;
+
+function uploadedMessage(uploaded: Photo[]): string {
+  const photoCount = uploaded.filter((item) => item.kind === 'image').length;
+  const videoCount = uploaded.length - photoCount;
+  if (photoCount > 0 && videoCount > 0) {
+    return `사진 ${uploaded.length}장을 업로드했어요.`;
+  }
+  if (videoCount > 0) return `영상 ${videoCount}개를 업로드했어요.`;
+  return `사진 ${photoCount}장을 업로드했어요.`;
+}
+
 type Overlay =
   | { k: 'download' }
   | { k: 'move' }
@@ -231,7 +244,7 @@ export function RoomScreen({
     onUploaded: (uploaded) => {
       // Firebase 모드에서는 업로드가 이미 Firestore에 반영돼 구독으로 화면에 나타납니다.
       if (!firebaseEnabled) actions.addPhotosLocal(uploaded);
-      toast(`사진 ${uploaded.length}장을 업로드했어요.`);
+      toast(uploadedMessage(uploaded));
     },
     shouldFail: useCallback(() => {
       if (!navigator.onLine) return '연결 끊김';
@@ -500,7 +513,7 @@ export function RoomScreen({
 
       {!online && !transfer && <NetworkBanner />}
 
-      {!transfer && (
+      {SHOW_DEMO_SCENARIOS && !transfer && (
         <DemoPanel
           state={demo}
           raised={selection.count > 0 || !online}

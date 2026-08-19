@@ -4,6 +4,14 @@ import { Button, MenuButton } from '../components/ui';
 import { IconBrokenLink, IconWifiOff } from '../components/Icons';
 import './entry.css';
 
+export function RoomLoadingScreen() {
+  return (
+    <div className="room-loading" role="status" aria-label="방 불러오는 중">
+      <span className="room-loading__spinner" aria-hidden="true" />
+    </div>
+  );
+}
+
 function Result({
   art,
   title,

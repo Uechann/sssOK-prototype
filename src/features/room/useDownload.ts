@@ -7,9 +7,35 @@ export type DownloadMode = 'each' | 'zip';
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-async function toBlob(photo: Photo): Promise<Blob> {
+async function toBlob(
+  photo: Photo,
+  onProgress: (loaded: number, expected: number) => void,
+): Promise<Blob> {
   const response = await fetch(photo.src);
-  return response.blob();
+  if (!response.ok) throw new Error(`다운로드 실패 (${response.status})`);
+
+  const expected = Number(response.headers.get('content-length')) || Math.max(photo.size, 1);
+  if (!response.body) {
+    const blob = await response.blob();
+    onProgress(blob.size, expected);
+    return blob;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: BlobPart[] = [];
+  let loaded = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+      loaded += value.byteLength;
+      onProgress(loaded, expected);
+    }
+  }
+  return new Blob(chunks, {
+    type: response.headers.get('content-type') || undefined,
+  });
 }
 
 function saveBlob(blob: Blob, filename: string) {
@@ -70,37 +96,61 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
       canceled.current = false;
       const total = photos.length;
       const startedAt = Date.now();
+      const expectedSizes = photos.map((photo) => Math.max(photo.size, 1));
+      const totalBytes = expectedSizes.reduce((sum, size) => sum + size, 0);
+      const downloadWeight = mode === 'zip' ? 0.88 : 1;
       setTransfer({ kind: 'download', done: 0, total, percent: 0, canceled: false });
 
       const taken = new Set<string>();
       const blobs: { name: string; blob: Blob }[] = [];
       let failed = 0;
+      let completedBytes = 0;
 
       for (let i = 0; i < photos.length; i += 1) {
         if (canceled.current) break;
         const photo = photos[i];
         try {
           if (shouldFail()) throw new Error('네트워크 오류');
-          const blob = await toBlob(photo);
+          const expectedSize = expectedSizes[i];
+          const blob = await toBlob(photo, (loaded, responseExpected) => {
+            if (canceled.current) return;
+            const normalizedLoaded = Math.min(
+              expectedSize,
+              expectedSize * (loaded / Math.max(responseExpected, 1)),
+            );
+            setTransfer({
+              kind: 'download',
+              done: i,
+              total,
+              percent: Math.round(
+                ((completedBytes + normalizedLoaded) / totalBytes) * 100 * downloadWeight,
+              ),
+              canceled: false,
+            });
+          });
           blobs.push({ name: uniqueName(taken, photo.name), blob });
         } catch {
           failed += 1;
         }
+        completedBytes += expectedSizes[i];
         await sleep(90);
         setTransfer({
           kind: 'download',
           done: i + 1,
           total,
-          percent: Math.round(((i + 1) / total) * 100),
+          percent: Math.round((completedBytes / totalBytes) * 100 * downloadWeight),
           canceled: false,
         });
       }
 
       const stopped = canceled.current;
-      setTransfer(null);
-      if (stopped) return;
+      if (stopped) {
+        setTransfer(null);
+        return;
+      }
 
       if (failed > 0 && blobs.length === 0) {
+        setTransfer(null);
         fail('download.all_failed', { mode, count: total });
         onFail(failed);
         return;
@@ -116,7 +166,24 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
         } else if (mode === 'zip') {
           const zip = new JSZip();
           blobs.forEach(({ name, blob }) => zip.file(name, blob));
-          const archive = await zip.generateAsync({ type: 'blob' });
+          setTransfer({
+            kind: 'download',
+            done: total,
+            total,
+            percent: 88,
+            canceled: false,
+            label: '압축 중',
+          });
+          const archive = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+            setTransfer({
+              kind: 'download',
+              done: total,
+              total,
+              percent: Math.round(88 + metadata.percent * 0.12),
+              canceled: false,
+              label: '압축 중',
+            });
+          });
           saveBlob(archive, `sssOK_${roomCode}.zip`);
         } else {
           for (const { name, blob } of blobs) {
@@ -125,6 +192,7 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
           }
         }
       } catch (error) {
+        setTransfer(null);
         // 공유 시트를 사용자가 닫은 경우는 실패로 보지 않습니다
         if ((error as Error)?.name !== 'AbortError') {
           fail('download.save_failed', { mode, count: blobs.length, toPhotoLibrary });
@@ -136,6 +204,7 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
         return;
       }
 
+      setTransfer(null);
       action('download.done', {
         mode: toPhotoLibrary ? 'photos' : mode,
         saved: blobs.length,

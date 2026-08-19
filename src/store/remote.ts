@@ -30,7 +30,7 @@ import {
   uploadBytesResumable,
   type UploadTaskSnapshot,
 } from 'firebase/storage';
-import type { Folder, Member, Photo, Room, UploadPolicy } from '../types';
+import type { ExpiryHours, Folder, Member, Photo, Room, UploadPolicy } from '../types';
 import { db, storage } from '../lib/firebase';
 import { blobToDataUrl } from '../lib/media';
 
@@ -51,6 +51,7 @@ interface RoomDoc {
   hostName: string;
   createdAt: number;
   expiresAt: number;
+  expiryHours?: ExpiryHours;
   uploadPolicy: UploadPolicy;
   passcode?: string;
   deletedAt?: number;
@@ -91,6 +92,7 @@ export async function createRoomRemote(room: Room): Promise<void> {
     hostName: room.hostName,
     createdAt: room.createdAt,
     expiresAt: room.expiresAt,
+    expiryHours: room.expiryHours,
     uploadPolicy: room.uploadPolicy,
     ...(room.passcode ? { passcode: room.passcode } : {}),
   };
@@ -173,6 +175,7 @@ export async function patchRoomRemote(code: string, patch: Partial<Room>): Promi
   if (patch.hostName !== undefined) data.hostName = patch.hostName;
   if (patch.uploadPolicy !== undefined) data.uploadPolicy = patch.uploadPolicy;
   if (patch.expiresAt !== undefined) data.expiresAt = patch.expiresAt;
+  if (patch.expiryHours !== undefined) data.expiryHours = patch.expiryHours;
   if (patch.deletedAt !== undefined) data.deletedAt = patch.deletedAt;
   if ('passcode' in patch) data.passcode = patch.passcode ? patch.passcode : deleteField();
   await updateDoc(roomRef(code), data);
