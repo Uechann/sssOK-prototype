@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import JSZip from 'jszip';
+import * as amplitude from '@amplitude/unified';
 import type { Photo, TransferState } from '../../types';
 import { action, fail } from '../../lib/analytics';
+import { AMPLITUDE_EVENTS } from '../../lib/amplitudeEvents';
 
 export type DownloadMode = 'each' | 'zip';
 
@@ -152,6 +154,11 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
       if (failed > 0 && blobs.length === 0) {
         setTransfer(null);
         fail('download.all_failed', { mode, count: total });
+        amplitude.track(AMPLITUDE_EVENTS.PHOTO_DOWNLOAD_FAILED, {
+          failed_count: failed,
+          reason: 'all_failed',
+          mode,
+        });
         onFail(failed);
         return;
       }
@@ -196,6 +203,11 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
         // 공유 시트를 사용자가 닫은 경우는 실패로 보지 않습니다
         if ((error as Error)?.name !== 'AbortError') {
           fail('download.save_failed', { mode, count: blobs.length, toPhotoLibrary });
+          amplitude.track(AMPLITUDE_EVENTS.PHOTO_DOWNLOAD_FAILED, {
+            failed_count: blobs.length,
+            reason: 'save_failed',
+            mode: toPhotoLibrary ? 'photos' : mode,
+          });
           onFail(blobs.length);
           return;
         }
@@ -210,6 +222,10 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
         saved: blobs.length,
         failed,
         ms: Date.now() - startedAt,
+      });
+      amplitude.track(AMPLITUDE_EVENTS.PHOTO_DOWNLOADED, {
+        photo_count: blobs.length,
+        mode: toPhotoLibrary ? 'photos' : mode,
       });
       if (failed > 0) onFail(failed);
       else onDone(blobs.length);

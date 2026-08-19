@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@amplitude/unified": "^1.1.29",
     "firebase": "^12.17.1",
     "jszip": "^3.10.1",
     "qrcode": "^1.5.4",

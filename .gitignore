@@ -15,3 +15,6 @@ dist
 
 # JetBrains IDE 개인 설정
 .idea/
+
+# Amplitude 마법사가 로컬에 남기는 프로젝트 바인딩 — 개인 로컬 설정입니다
+.amplitude/

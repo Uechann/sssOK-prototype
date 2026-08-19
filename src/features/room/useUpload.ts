@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
+import * as amplitude from '@amplitude/unified';
 import type { Photo, TransferState, UploadItem } from '../../types';
 import { uid } from '../../lib/format';
 import { blobStore } from '../../lib/idb';
 import { FIRESTORE_INLINE_BUDGET, kindOf, optimize, overLimitReason } from '../../lib/media';
 import { firebaseEnabled } from '../../lib/firebase';
 import { action, fail } from '../../lib/analytics';
+import { AMPLITUDE_EVENTS } from '../../lib/amplitudeEvents';
 import { uploadPhotoRemote } from '../../store/remote';
 
 export interface OversizedFile {
@@ -169,7 +171,19 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         canceled: canceled.current,
         ms: Date.now() - startedAt,
       });
-      if (uploaded.length > 0) onUploaded(uploaded);
+      if (uploaded.length > 0) {
+        amplitude.track(AMPLITUDE_EVENTS.PHOTO_UPLOADED, {
+          photo_count: uploaded.length,
+          failed_count: failed.length,
+        });
+        onUploaded(uploaded);
+      }
+      if (failed.length > 0) {
+        amplitude.track(AMPLITUDE_EVENTS.PHOTO_UPLOAD_FAILED, {
+          failed_count: failed.length,
+          reason: 'upload_error',
+        });
+      }
       setFailures(failed);
       setTransfer(null);
       setItems([]);
@@ -207,6 +221,12 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
       }
 
       setOversized(tooBig);
+      if (tooBig.length > 0) {
+        amplitude.track(AMPLITUDE_EVENTS.PHOTO_UPLOAD_FAILED, {
+          failed_count: tooBig.length,
+          reason: 'oversize',
+        });
+      }
       action('upload.start', {
         count: queue.length,
         images: queue.filter((q) => q.kind === 'image').length,
