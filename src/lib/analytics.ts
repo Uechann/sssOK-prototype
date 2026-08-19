@@ -264,6 +264,11 @@ function stopHeartbeat() {
   heartbeat = null;
 }
 
+/** 유입 경로(?src=) — 앱 시작 시 한 번 정해집니다. Amplitude 유저 속성으로도 씁니다. */
+export function getEntrySrc(): string {
+  return entrySrc ?? 'direct';
+}
+
 export function setRole(next: TrackedEvent['role']) {
   role = next;
 }

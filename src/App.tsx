@@ -7,7 +7,17 @@ import { useOnline } from './lib/hooks';
 import { useStore, useRemoteRoomSync, useRoomActions } from './store/store';
 import { firebaseEnabled } from './lib/firebase';
 import { createRoomRemote, fetchRoomOnce } from './store/remote';
-import { action, endScreen, fail, screen, setRole, setRoom, startAnalytics } from './lib/analytics';
+import {
+  action,
+  endScreen,
+  fail,
+  getEntrySrc,
+  screen,
+  setRole,
+  setRoom,
+  startAnalytics,
+} from './lib/analytics';
+import { AMPLITUDE_EVENTS, identifyEntrySrc } from './lib/amplitudeEvents';
 import { recordEvent } from './store/events';
 import { ToastLayer } from './components/ui';
 import { Onboarding } from './screens/Onboarding';
@@ -40,7 +50,10 @@ export function App() {
   useRemoteRoomSync(currentCode);
   const actions = useRoomActions(currentCode ?? '');
 
-  useEffect(() => startAnalytics(recordEvent), []);
+  useEffect(() => {
+    startAnalytics(recordEvent);
+    identifyEntrySrc(getEntrySrc());
+  }, []);
 
   // 방 컨텍스트 — 이후 모든 이벤트에 방(해시)과 호스트/게스트 구분이 함께 붙습니다
   const currentRoom = currentCode ? rooms[currentCode] : undefined;
@@ -80,6 +93,11 @@ export function App() {
         expiryHours: value.expiryHours,
         uploadPolicy: value.uploadPolicy,
         passcode: Boolean(value.passcode),
+      });
+      amplitude.track(AMPLITUDE_EVENTS.ROOM_CREATED, {
+        expiry_hours: value.expiryHours,
+        upload_policy: value.uploadPolicy,
+        has_passcode: Boolean(value.passcode),
       });
       setNewRoomCode(room.code);
       navigate({ name: 'room', code: room.code });
@@ -128,7 +146,7 @@ export function App() {
 
   useEffect(() => {
     if (screenName === 'onboarding') {
-      amplitude.track('Viewed Home Page', { prompt_version: 'BA400.4' }); // helps improve this setup flow — safe to remove once you've verified the event lands
+      amplitude.track(AMPLITUDE_EVENTS.HOME_PAGE_VIEWED, { prompt_version: 'BA400.4' });
     }
   }, [screenName]);
 
@@ -139,8 +157,14 @@ export function App() {
       case 'onboarding':
         return (
           <Onboarding
-            onCreate={() => navigate({ name: 'create' })}
-            onJoin={() => navigate({ name: 'join' })}
+            onCreate={() => {
+              amplitude.track(AMPLITUDE_EVENTS.ROOM_CREATE_STARTED);
+              navigate({ name: 'create' });
+            }}
+            onJoin={() => {
+              amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_STARTED);
+              navigate({ name: 'join' });
+            }}
           />
         );
 
@@ -167,17 +191,23 @@ export function App() {
               const room = firebaseEnabled ? await fetchRoomOnce(code) : rooms[code];
               if (!room) {
                 fail('join.code_not_found');
+                amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_FAILED, { reason: 'code_not_found' });
                 return '입력 코드를 확인해주세요';
               }
               if (isExpired(room)) {
                 fail('join.expired');
+                amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_FAILED, { reason: 'expired' });
                 return '이미 사라진 방이에요';
               }
               if (room.passcode && room.passcode !== passcode) {
                 fail('join.wrong_passcode');
+                amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_FAILED, { reason: 'wrong_passcode' });
                 return '입장 암호가 올바르지 않아요';
               }
               action('join.ok');
+              amplitude.track(AMPLITUDE_EVENTS.ROOM_JOINED, {
+                has_passcode: Boolean(room.passcode),
+              });
               navigate({ name: 'room', code });
               return null;
             }}
