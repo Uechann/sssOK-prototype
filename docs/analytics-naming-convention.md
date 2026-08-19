@@ -134,9 +134,36 @@ export const EVENTS = {
 
 Amplitude Data의 Naming Convention을 설정하여 이벤트명이 팀 규칙을 따르는지 검증하고 관리한다.
 
-### 3-3. 개발/운영 프로젝트 분리
+### 3-3. 개발/운영 환경 구분 (`environment` 속성)
 
-테스트 이벤트가 비즈니스 리포트를 더럽히지 않도록 dev/prod 프로젝트를 분리한다.
+테스트 이벤트가 비즈니스 리포트를 더럽히지 않도록 환경을 구분한다.
+프로젝트를 dev/prod로 나누는 것이 정석이지만, 현재는 프로젝트가 하나이므로
+**모든 이벤트에 `environment` 속성을 붙여** 차트에서 걸러낸다.
+
+- 값: `development` | `production` (필요하면 `VITE_APP_ENV`로 `staging` 등 지정)
+- 판정: `VITE_APP_ENV` → vite dev 서버 → localhost·사설망 접속 → 그 외는 `production`
+- 구현: `src/lib/amplitudeEvents.ts`의 `environmentPlugin`(enrichment 플러그인).
+  `main.tsx`에서 `initAll` **전에** `amplitude.add()` 해야 오토캡처 이벤트까지 덮인다.
+- 이벤트 속성과 유저 속성(`identifyEnvironment()`) 양쪽에 남긴다.
+  이벤트 속성은 차트 필터용, 유저 속성은 "개발자 기기 제외" 코호트용이다.
+- 세션 리플레이는 `production`에서만 녹화한다(무료 쿼터 보호).
+
+### 3-3-1. 내부 사용자(팀원) 표시 (`is_internal` 속성)
+
+`environment`는 "어디서 띄운 앱이냐"만 구분한다. 팀원이 배포된 사이트에서 테스트하면
+실사용자와 똑같이 `production`으로 찍히므로, 사람 쪽에도 표시를 단다.
+
+- 팀원은 배포 주소에 `?internal=1`을 붙여 브라우저마다 한 번씩 들어온다
+  (`https://demo.ssssok.com/?internal=1`). localStorage에 남아 이후 계속 유지된다. 해제는 `?internal=0`.
+- 개발 환경(`environment !== 'production'`)은 표시하지 않아도 `is_internal: true`다.
+- 따라서 **차트에는 `is_internal`이 true가 아닌 것만** 남기면 실사용자만 보인다.
+
+### 3-3-2. 과거 데이터(속성이 붙기 전) 걸러내기
+
+- 커스텀 이벤트에도 오토캡처가 `[Amplitude] Page Domain`을 붙여준다(확인됨).
+  → **`[Amplitude] Page Domain = demo.ssssok.com`** 필터만으로 로컬 개발 트래픽이 빠진다.
+- 팀원이 배포 사이트에서 만든 과거 이벤트는 도메인으로 구분되지 않는다.
+  localhost 접속 이력이 있는 유저(= 개발자 기기)를 코호트로 만들어 차트에서 제외한다.
 
 ### 3-4. 이벤트 변경 관리
 
@@ -148,6 +175,8 @@ Amplitude Data의 Naming Convention을 설정하여 이벤트명이 팀 규칙�
 - [ ] 같은 행동을 이미 추적하는 이벤트가 있는가? (중복 금지)
 - [ ] 변형은 속성으로 분리했는가?
 - [ ] 동적 값이 이벤트명에 들어가지 않았는가?
+- [ ] `~ Started` 류는 특정 버튼이 아니라 **화면 진입**에서 찍는가?
+      (진입 경로가 여러 개면 버튼 한 곳에서만 찍었을 때 시작 < 완료가 됩니다)
 - [ ] PII가 포함되지 않았는가?
 - [ ] 공유 상수 모듈에 등록했는가?
 

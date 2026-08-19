@@ -166,11 +166,23 @@ export function App() {
     else if (route.name === "admin") endScreen();
   }, [screenName, route.name]);
 
+  /** 시작 이벤트는 버튼이 아니라 화면 진입에서 찍습니다.
+   * 홈 버튼에서만 찍으면 다른 경로 — 사라진 링크 화면의 "코드로 입장",
+   * 만료된 방 화면의 "새 방 만들기", 주소 직접 입력 — 이 통째로 빠져
+   * "시작보다 완료가 많은" 퍼널이 나옵니다. */
   useEffect(() => {
     if (screenName === "onboarding") {
       amplitude.track(AMPLITUDE_EVENTS.HOME_PAGE_VIEWED, { prompt_version: "BA400.4" });
     } else if (screenName === "room.settings") {
       amplitude.track(AMPLITUDE_EVENTS.ROOM_SETTINGS_VIEWED);
+    } else if (screenName === "room_create_form") {
+      amplitude.track(AMPLITUDE_EVENTS.ROOM_CREATE_STARTED);
+    } else if (screenName === "join") {
+      amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_STARTED, {
+        entry_src: getEntrySrc(),
+        // 코드가 채워진 채로 시작했는지(#/join?code=…) — 직접 입력과 구분합니다
+        has_prefilled_code: route.name === "join" && Boolean(route.code),
+      });
     }
   }, [screenName]);
 
@@ -181,14 +193,8 @@ export function App() {
       case "onboarding":
         return (
           <Onboarding
-            onCreate={() => {
-              amplitude.track(AMPLITUDE_EVENTS.ROOM_CREATE_STARTED);
-              navigate({ name: "create" });
-            }}
-            onJoin={() => {
-              amplitude.track(AMPLITUDE_EVENTS.ROOM_JOIN_STARTED);
-              navigate({ name: "join" });
-            }}
+            onCreate={() => navigate({ name: "create" })}
+            onJoin={() => navigate({ name: "join" })}
           />
         );
 
