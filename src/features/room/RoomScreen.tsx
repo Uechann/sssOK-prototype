@@ -7,6 +7,7 @@ import { uid } from '../../lib/format';
 import { blobStore } from '../../lib/idb';
 import { Mascot, MascotImage } from '../../components/Mascot';
 import { firebaseEnabled } from '../../lib/firebase';
+import { action, screen, setScenario } from '../../lib/analytics';
 import { Popover, PopoverItem, PopoverSeparator } from '../../components/ui';
 import {
   IconChevronUp,
@@ -93,6 +94,9 @@ export function RoomScreen({
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<PhotoFilter>('all');
   const [overlay, setOverlay] = useState<Overlay>(null);
+  /** 이번 닫기가 "확정"인지 표시 — 표시가 없으면 그냥 포기하고 닫은 것으로 봅니다 */
+  const confirmed = useRef(false);
+  const lastOverlay = useRef<Overlay>(null);
   const [popover, setPopover] = useState<PopoverKind>(null);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
@@ -156,6 +160,69 @@ export function RoomScreen({
     [],
   );
 
+  /** 시트·모달을 확정하고 닫을 때 씁니다. 그냥 `setOverlay(null)` 로 닫으면 포기로 기록됩니다. */
+  const closeOverlay = useCallback((wasConfirmed = false) => {
+    confirmed.current = wasConfirmed;
+    setOverlay(null);
+  }, []);
+
+  /* ── 계측 ─────────────────────────────────────────── */
+  /** 라우트는 `room` 하나지만 사용자 시간의 대부분이 이 안에서 흐릅니다.
+   * 체류시간이 의미를 가지려면 방 안을 이만큼 쪼개야 합니다. */
+  const emptySuffix = photos.length === 0 ? '.empty' : '';
+  const subScreen = lightboxId
+    ? 'room.lightbox'
+    : overlay
+      ? `room.${overlay.k}`
+      : activeFolderId
+        ? `room.folder${emptySuffix}`
+        : filter !== 'all'
+          ? `room.filter${emptySuffix}`
+          : `room.gallery${emptySuffix}`;
+
+  useEffect(() => {
+    screen(subScreen);
+  }, [subScreen]);
+
+  /** 열었다가 그냥 닫은 시트·모달은 "여기 원하는 게 없었다"는 신호입니다.
+   * 확정과 포기를 나눠 남깁니다. */
+  useEffect(() => {
+    const previous = lastOverlay.current;
+    if (previous && previous.k !== overlay?.k) {
+      action(confirmed.current ? 'dialog.confirmed' : 'dialog.dismissed', {
+        dialog: previous.k,
+        ...(overlay ? { to: overlay.k } : {}),
+      });
+      confirmed.current = false;
+    }
+    lastOverlay.current = overlay;
+  }, [overlay]);
+
+  /** 방이 실제로 어떻게 쓰이는지 — 폴더가 몇 개까지 늘어나는지, 멤버 중 몇 명이나
+   * 실제로 올리는지가 다음에 만들 기능을 정해줍니다. 들어올 때와 나갈 때 한 번씩 남깁니다. */
+  const roomShape = useRef({ photos: 0, folders: 0, members: 0, uploaders: 0, mine: 0 });
+  roomShape.current = {
+    photos: room.photos.length,
+    folders: room.folders.length,
+    members: room.members.length,
+    uploaders: new Set(room.photos.map((p) => p.uploaderId)).size,
+    mine: room.photos.filter((p) => p.uploaderId === me.id).length,
+  };
+  useEffect(() => {
+    const mountedAt = Date.now();
+    action('room.snapshot', { at: 'enter', ...roomShape.current });
+    return () => {
+      // StrictMode가 개발 중 효과를 두 번 실행하며 즉시 언마운트하는 것을 걸러냅니다
+      if (Date.now() - mountedAt < 1000) return;
+      action('room.snapshot', { at: 'leave', ...roomShape.current });
+    };
+  }, []);
+
+  // 시나리오 칩으로 만든 실패는 전부 가짜 — 이 플래그가 없으면 실패율이 거짓말을 합니다
+  useEffect(() => {
+    setScenario(demo.failUpload || demo.failDownload);
+  }, [demo.failUpload, demo.failDownload]);
+
   /* ── 업로드 ───────────────────────────────────────── */
   const upload = useUpload({
     me,
@@ -210,47 +277,56 @@ export function RoomScreen({
   const startDownload = (mode: DownloadMode, toPhotos: boolean) => {
     const targets = selectedPhotos.length > 0 ? selectedPhotos : [];
     if (targets.length === 0) return;
-    setOverlay(null);
+    closeOverlay(true);
+    selection.setOutcome('download');
     selection.clear();
     lastDownload.current = { photos: targets, mode, toPhotos };
+    action('download.start', { mode, count: targets.length, toPhotos, from: 'selection' });
     void download.start(targets, mode, toPhotos);
   };
 
   const downloadOne = (photo: Photo) => {
     lastDownload.current = { photos: [photo], mode: 'each', toPhotos: false };
+    action('download.start', { mode: 'each', count: 1, toPhotos: false, from: 'lightbox' });
     void download.start([photo], 'each', false);
   };
 
   const removePhotos = (ids: string[]) => {
     ids.forEach((id) => void blobStore.del(id));
     actions.removePhotos(ids);
+    selection.setOutcome('delete');
     selection.clear();
-    setOverlay(null);
+    closeOverlay(true);
     setLightboxId(null);
+    action('photo.delete', { count: ids.length });
     toast(`사진 ${ids.length}장을 삭제했어요.`);
   };
 
   const shareLink = async () => {
     setPopover(null);
-    const ok = await copyText(inviteUrl(room.code));
+    const ok = await copyText(inviteUrl(room.code, 'link'));
+    action('invite.copy_link', { ok });
     toast(ok ? '공유 링크를 복사했어요.' : '링크 복사에 실패했어요.', ok ? 'success' : 'warn');
   };
 
   const copyCode = async () => {
     const ok = await copyText(room.code);
-    setOverlay(null);
+    action('invite.copy_code', { ok });
+    closeOverlay(true);
     toast(ok ? '참여 코드를 복사했어요.' : '코드 복사에 실패했어요.', ok ? 'success' : 'warn');
   };
 
   const createFolder = (name: string, moveAfter?: boolean) => {
     const folder = { id: uid('f_'), name, createdAt: Date.now() };
+    action('folder.create', { moveAfter: Boolean(moveAfter) });
     actions.addFolder(folder);
-    setOverlay(null);
+    closeOverlay(true);
     if (moveAfter && selectedPhotos.length > 0) {
       const ids = selectedPhotos.map((p) => p.id);
       setFolderMovePending({ folderId: folder.id, photoIds: ids });
       setFilter('all');
       actions.moveToFolder(ids, folder.id);
+      selection.setOutcome('move');
       selection.clear();
       toast(`사진 ${selectedPhotos.length}장이 폴더에 추가되었어요.`);
     } else {
@@ -261,14 +337,16 @@ export function RoomScreen({
 
   const moveSelected = (folderId: string | null) => {
     const ids = selectedPhotos.map((p) => p.id);
+    action('folder.move', { count: ids.length, out: !folderId });
     if (folderId) {
       setActiveFolderId(folderId);
       setFilter('all');
       setFolderMovePending({ folderId, photoIds: ids });
     }
     actions.moveToFolder(ids, folderId);
+    selection.setOutcome('move');
     selection.clear();
-    setOverlay(null);
+    closeOverlay(true);
     toast(folderId ? `사진 ${ids.length}장이 폴더에 추가되었어요.` : '폴더에서 꺼냈어요.');
   };
 
@@ -292,18 +370,27 @@ export function RoomScreen({
         allSelected={photos.length > 0 && selection.count === photos.length}
         onSelectFolder={(id) => {
           setActiveFolderId(id);
+          selection.setOutcome('switch');
           selection.clear();
         }}
         onAddFolder={() => setOverlay({ k: 'folderCreate' })}
         onChangeFilter={(next) => {
+          action('filter', { value: next });
           setFilter(next);
+          selection.setOutcome('switch');
           selection.clear();
         }}
         onToggleSelectAll={() =>
           selection.count === photos.length ? selection.clear() : selection.selectAll()
         }
-        onOpenShare={(rect) => setPopover({ kind: 'share', rect })}
-        onOpenMenu={(rect) => setPopover({ kind: 'menu', rect })}
+        onOpenShare={(rect) => {
+          action('popover.share');
+          setPopover({ kind: 'share', rect });
+        }}
+        onOpenMenu={(rect) => {
+          action('popover.menu');
+          setPopover({ kind: 'menu', rect });
+        }}
       />
 
       <div
@@ -544,7 +631,7 @@ export function RoomScreen({
           onClose={() => setOverlay(null)}
           onSubmit={(name) => {
             actions.renameFolder(activeFolder.id, name);
-            setOverlay(null);
+            closeOverlay(true);
             toast('폴더 이름을 변경했어요');
           }}
         />
@@ -557,7 +644,7 @@ export function RoomScreen({
           onConfirm={() => {
             actions.deleteFolder(activeFolder.id);
             setActiveFolderId(null);
-            setOverlay(null);
+            closeOverlay(true);
             toast(`'${activeFolder.name}' 폴더를 삭제했어요`);
           }}
         />
@@ -567,7 +654,7 @@ export function RoomScreen({
         <DeleteRoomModal
           onClose={() => setOverlay(null)}
           onConfirm={() => {
-            setOverlay(null);
+            closeOverlay(true);
             onLeaveHome();
           }}
         />
@@ -584,7 +671,7 @@ export function RoomScreen({
       {overlay?.k === 'qr' && (
         <QrModal
           code={room.code}
-          url={inviteUrl(room.code)}
+          url={inviteUrl(room.code, 'qr')}
           onCopyCode={copyCode}
           onClose={() => setOverlay(null)}
         />
@@ -595,7 +682,7 @@ export function RoomScreen({
           count={overlay.count}
           onClose={() => setOverlay(null)}
           onRetry={() => {
-            setOverlay(null);
+            closeOverlay(true);
             const last = lastDownload.current;
             if (last) void download.start(last.photos, last.mode, last.toPhotos);
           }}
@@ -603,13 +690,23 @@ export function RoomScreen({
       )}
 
       {upload.oversized.length > 0 && (
-        <SizeLimitModal files={upload.oversized} onClose={upload.clearOversized} />
+        <SizeLimitModal
+          files={upload.oversized}
+          onClose={() => {
+            action('dialog.dismissed', { dialog: 'sizeLimit', files: upload.oversized.length });
+            upload.clearOversized();
+          }}
+        />
       )}
 
       {upload.failures.length > 0 && (
         <UploadFailModal
           failures={upload.failures}
-          onClose={upload.clearFailures}
+          onClose={() => {
+            // 재시도하지 않고 닫음 = 포기. 재시도율과 함께 보면 실패 안내가 먹히는지 보입니다
+            action('dialog.dismissed', { dialog: 'uploadFail', files: upload.failures.length });
+            upload.clearFailures();
+          }}
           onRetry={() => void upload.retryFailed()}
         />
       )}

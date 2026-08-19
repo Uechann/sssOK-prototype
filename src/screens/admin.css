@@ -1,0 +1,457 @@
+/* 개발자용 대시보드 — 앱 화면이 아니라 도구입니다.
+ * 시안에 없는 화면이라 토큰만 빌려 쓰고 밀도는 도구답게 높였습니다. */
+
+.admin {
+  overflow-y: auto;
+  background: var(--surface-soft);
+  padding: 20px 20px 64px;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.admin h1 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.admin h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-700);
+  margin-bottom: 10px;
+}
+
+.ad-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ad-top p {
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+
+.ad-top__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ad-top__actions button {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ad-top__actions button:hover {
+  border-color: var(--orange);
+  color: var(--orange-ink);
+}
+
+/* ── 필터 ─────────────────────────────────────────────── */
+
+.ad-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.ad-filters button {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  border-radius: var(--r-full);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ad-filters button[data-on='true'] {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--white);
+  font-weight: 700;
+}
+
+.ad-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+/* ── 요약 카드 ────────────────────────────────────────── */
+
+.ad-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.ad-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ad-card b {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-card span {
+  color: var(--gray-500);
+  font-size: 11px;
+}
+
+.ad-card[data-tone='danger'] b {
+  color: var(--danger);
+}
+
+/* ── 패널 공통 ────────────────────────────────────────── */
+
+.ad-panel,
+.ad-funnel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+
+.ad-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.ad-empty {
+  color: var(--gray-400);
+  padding: 8px 0;
+}
+
+.ad-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+}
+
+/* ── 퍼널 ─────────────────────────────────────────────── */
+
+.ad-funnel ol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+}
+
+.ad-funnel__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ad-funnel__label {
+  flex: 1;
+}
+
+.ad-funnel__num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-funnel__rate {
+  color: var(--gray-500);
+  font-size: 11px;
+  min-width: 34px;
+  text-align: right;
+}
+
+.ad-bar {
+  height: 6px;
+  background: var(--placeholder);
+  border-radius: var(--r-full);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.ad-bar__fill {
+  height: 100%;
+  background: var(--orange);
+  border-radius: var(--r-full);
+}
+
+.ad-funnel__lost {
+  color: var(--danger);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+/* ── 표 ───────────────────────────────────────────────── */
+
+.ad-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-panel th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--gray-500);
+  font-weight: 600;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ad-panel td {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ad-panel th + th,
+.ad-panel td + td {
+  text-align: right;
+  padding-left: 10px;
+}
+
+.ad-panel tr[data-hot='true'] td {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.ad-panel td em {
+  color: var(--gray-500);
+  font-style: normal;
+  font-size: 11px;
+}
+
+/* ── 목록 ─────────────────────────────────────────────── */
+
+.ad-rows {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-rows li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ad-rows li:last-child {
+  border-bottom: 0;
+}
+
+.ad-rows li span {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.ad-rows li b {
+  grid-column: 2;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-rows li em {
+  grid-column: 1 / -1;
+  color: var(--gray-500);
+  font-style: normal;
+  font-size: 11px;
+}
+
+/* ── 세션 ─────────────────────────────────────────────── */
+
+.ad-sessions {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ad-session {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.ad-session[data-open='true'] {
+  border-color: var(--orange-weak);
+}
+
+.ad-session__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.ad-session__head:hover {
+  background: var(--orange-tint);
+}
+
+.ad-session__time {
+  color: var(--gray-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-session__dur {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-session__last {
+  flex: 1;
+  color: var(--gray-700);
+}
+
+.ad-session__meta {
+  color: var(--gray-400);
+  font-size: 11px;
+}
+
+.ad-chip {
+  border-radius: var(--r-full);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--placeholder);
+  color: var(--gray-700);
+}
+
+.ad-chip[data-role='host'] {
+  background: var(--orange-soft);
+  color: var(--orange-ink);
+}
+
+.ad-chip[data-tone='danger'] {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.ad-chip[data-tone='warn'] {
+  background: #fff3cd;
+  color: #8a6100;
+}
+
+.ad-chip[data-tone='good'] {
+  background: #e3f4e4;
+  color: #2d6a31;
+}
+
+/* ── 타임라인 ─────────────────────────────────────────── */
+
+.ad-timeline {
+  list-style: none;
+  border-top: 1px solid var(--line);
+  background: var(--surface-soft);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-timeline li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+
+.ad-timeline__at {
+  color: var(--gray-400);
+  font-variant-numeric: tabular-nums;
+  min-width: 72px;
+  font-size: 11px;
+}
+
+.ad-timeline__name {
+  font-weight: 600;
+}
+
+.ad-timeline__dwell {
+  color: var(--gray-500);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.ad-timeline__meta {
+  color: var(--gray-500);
+  font-size: 11px;
+}
+
+.ad-timeline li[data-kind='fail'] .ad-timeline__name {
+  color: var(--danger);
+}
+
+.ad-timeline li[data-kind='screen'] .ad-timeline__name {
+  color: var(--orange-ink);
+}
+
+.ad-funnel__note {
+  color: var(--gray-400);
+  font-size: 11px;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+/* ── 발굴 섹션 ────────────────────────────────────────── */
+
+.ad-discovery h4 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 18px 0 6px;
+}
+
+.ad-discovery h4:first-of-type {
+  margin-top: 12px;
+}
+
+.ad-two--tight {
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.ad-two--tight > div {
+  min-width: 0;
+}
+
+.ad-inline-note {
+  font-weight: 400;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--gray-400);
+}

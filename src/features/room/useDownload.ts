@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import type { Photo, TransferState } from '../../types';
+import { action, fail } from '../../lib/analytics';
 
 export type DownloadMode = 'each' | 'zip';
 
@@ -59,6 +60,7 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
   const canceled = useRef(false);
 
   const cancel = useCallback(() => {
+    action('download.cancel');
     canceled.current = true;
   }, []);
 
@@ -67,6 +69,7 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
       if (photos.length === 0) return;
       canceled.current = false;
       const total = photos.length;
+      const startedAt = Date.now();
       setTransfer({ kind: 'download', done: 0, total, percent: 0, canceled: false });
 
       const taken = new Set<string>();
@@ -98,6 +101,7 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
       if (stopped) return;
 
       if (failed > 0 && blobs.length === 0) {
+        fail('download.all_failed', { mode, count: total });
         onFail(failed);
         return;
       }
@@ -123,12 +127,21 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
       } catch (error) {
         // 공유 시트를 사용자가 닫은 경우는 실패로 보지 않습니다
         if ((error as Error)?.name !== 'AbortError') {
+          fail('download.save_failed', { mode, count: blobs.length, toPhotoLibrary });
           onFail(blobs.length);
           return;
         }
+        // 공유 시트를 사용자가 닫은 경우 — 실패가 아니라 "저장을 그만둠"입니다
+        action('download.share_dismissed', { count: blobs.length });
         return;
       }
 
+      action('download.done', {
+        mode: toPhotoLibrary ? 'photos' : mode,
+        saved: blobs.length,
+        failed,
+        ms: Date.now() - startedAt,
+      });
       if (failed > 0) onFail(failed);
       else onDone(blobs.length);
     },
