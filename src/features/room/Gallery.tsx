@@ -19,14 +19,6 @@ interface TileProps {
 
 function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideStart }: TileProps) {
   const lastTouchAt = useRef(0);
-  const clickTimer = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (clickTimer.current !== null) window.clearTimeout(clickTimer.current);
-    },
-    [],
-  );
 
   return (
     <div
@@ -42,20 +34,11 @@ function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideSt
           onOpen();
           return;
         }
-        // 더블클릭과 구분한 뒤 단일 클릭일 때만 선택합니다.
-        if (clickTimer.current !== null) window.clearTimeout(clickTimer.current);
-        const shift = event.shiftKey;
-        clickTimer.current = window.setTimeout(() => {
-          clickTimer.current = null;
-          onToggle(shift);
-        }, 220);
+        // 첫 클릭은 즉시 선택하고, 더블클릭의 두 번째 click은 토글하지 않습니다.
+        if (event.detail === 1) onToggle(event.shiftKey);
       }}
       onDoubleClick={() => {
         if (!desktop) return;
-        if (clickTimer.current !== null) {
-          window.clearTimeout(clickTimer.current);
-          clickTimer.current = null;
-        }
         onOpen();
       }}
       onKeyDown={(event) => {
