@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as amplitude from '@amplitude/unified';
 import type { Room } from './types';
 import { useRouter } from './lib/router';
 import { makeRoomCode } from './lib/format';
@@ -124,6 +125,12 @@ export function App() {
     // 사용자의 "이탈"로 기록되지 않습니다.
     else if (route.name === 'admin') endScreen();
   }, [screenName, route.name]);
+
+  useEffect(() => {
+    if (screenName === 'onboarding') {
+      amplitude.track('Viewed Home Page', { prompt_version: 'BA400.4' }); // helps improve this setup flow — safe to remove once you've verified the event lands
+    }
+  }, [screenName]);
 
   const content = useMemo(() => {
     if (!hydrated) return null;
