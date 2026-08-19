@@ -1,12 +1,12 @@
 /* ── 방 헤더 ───────────────────────────────────────── */
 .room-head {
   flex: none;
-  padding: 10px 30px 0;
+  padding: 10px 16px 0;
   background: var(--white);
 }
 .room-screen[data-empty='true'] .room-head {
-  padding-left: 30px;
-  padding-right: 30px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 .room-screen[data-empty='true'] .room-head__title-row {
   margin-top: 12px;
@@ -205,7 +205,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  padding: 20px 30px 120px;
+  padding: 20px 16px 120px;
   user-select: none;
 }
 @media (min-width: 600px) {
@@ -353,8 +353,8 @@
 }
 .empty--room {
   gap: 0;
-  padding-left: 30px;
-  padding-right: 30px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 .empty--room img {
   margin-bottom: 55px;
@@ -394,7 +394,7 @@
 /* ── 올리기 FAB ────────────────────────────────────── */
 .fab {
   position: absolute;
-  right: 30px;
+  right: 16px;
   bottom: calc(36px + var(--safe-b));
   z-index: 20;
   display: inline-flex;
@@ -421,7 +421,7 @@
   bottom: calc(96px + var(--safe-b));
 }
 .room-screen[data-empty='true'] .fab {
-  right: 30px;
+  right: 16px;
 }
 
 .scroll-top {
@@ -472,8 +472,8 @@
   animation: toast-up 200ms var(--ease);
 }
 .dockbar--selection {
-  left: 20px;
-  right: 20px;
+  left: 16px;
+  right: 16px;
   bottom: calc(36px + var(--safe-b));
   min-height: 0;
   gap: 0;
@@ -505,8 +505,8 @@
   background: var(--danger-soft);
 }
 .dockbar--transfer {
-  left: 20px;
-  right: 20px;
+  left: 16px;
+  right: 16px;
   bottom: calc(36px + var(--safe-b));
   height: 68px;
   min-height: 68px;
@@ -581,6 +581,8 @@
   background: var(--orange-press);
 }
 .dockbar__progress {
+  position: relative;
+  overflow: hidden;
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -593,6 +595,18 @@
   font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+.dockbar__progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--transfer-progress, 0%);
+  background: rgba(246, 109, 59, 0.18);
+  transition: width 180ms ease-out;
+}
+.dockbar__progress-label,
+.dockbar__progress .dockbar__spinner {
+  position: relative;
+  z-index: 1;
 }
 .dockbar__ratio {
   font-size: 14px;
@@ -1182,7 +1196,7 @@
   bottom: calc(94px + var(--safe-b));
 }
 .room-screen[data-empty='true'] .demo-toggle {
-  left: 30px;
+  left: 16px;
 }
 .demo-panel {
   position: absolute;

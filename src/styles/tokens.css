@@ -48,7 +48,7 @@
   --sh-fab: 0 6px 18px rgba(246, 109, 59, 0.36);
 
   /* Layout */
-  --page-x: 24px;
+  --page-x: 16px;
   --header-h: 56px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 

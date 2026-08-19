@@ -12,7 +12,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 30px calc(42px + var(--safe-b));
+  padding: 0 16px calc(24px + var(--safe-b));
 }
 .onboarding__body {
   flex: 1;
@@ -63,7 +63,7 @@
 .form-screen__scroll[data-mode='edit'] {
   display: flex;
   flex-direction: column;
-  padding: 40px 30px 0;
+  padding: 20px 16px 0;
 }
 .form-screen__art {
   display: flex;
@@ -79,6 +79,9 @@
 .form-block + .form-block {
   margin-top: 18px;
 }
+.form-block:first-child + .form-block {
+  margin-top: 6px;
+}
 .form-block__label {
   display: block;
   font-size: 13px;
@@ -88,7 +91,7 @@
 }
 .form-screen__footer {
   flex: none;
-  padding: 12px 30px calc(42px + var(--safe-b));
+  padding: 12px 16px calc(24px + var(--safe-b));
   background: var(--white);
 }
 .disclosure {
@@ -127,7 +130,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 30px calc(42px + var(--safe-b));
+  padding: 0 16px calc(24px + var(--safe-b));
 }
 .join__body {
   flex: 1;
@@ -206,6 +209,21 @@
 }
 
 /* ── 결과/오류 전체 화면 ────────────────────────────── */
+.room-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  background: var(--white);
+}
+.room-loading__spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(246, 109, 59, 0.2);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
 .result {
   flex: 1;
   display: flex;
@@ -248,7 +266,7 @@
   gap: 12px;
 }
 .result--expired {
-  padding: 0 30px calc(42px + var(--safe-b));
+  padding: 0 16px calc(24px + var(--safe-b));
 }
 .result--expired .result__body {
   gap: 0;

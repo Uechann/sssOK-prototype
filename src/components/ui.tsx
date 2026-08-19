@@ -124,7 +124,7 @@ export function TextField({
 
 /* ── 세그먼트 ──────────────────────────────────────── */
 
-export function Segment<T extends string>({
+export function Segment<T extends string | number>({
   value,
   options,
   onChange,

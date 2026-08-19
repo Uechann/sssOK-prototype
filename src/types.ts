@@ -1,4 +1,5 @@
 export type UploadPolicy = 'everyone' | 'host';
+export type ExpiryHours = 24 | 72;
 
 export interface Folder {
   id: string;
@@ -45,6 +46,8 @@ export interface Room {
   hostName: string;
   createdAt: number;
   expiresAt: number;
+  /** 사용자가 선택한 방 유지 기간. 기존 데이터에는 없을 수 있습니다. */
+  expiryHours?: ExpiryHours;
   uploadPolicy: UploadPolicy;
   /** 입장 암호 (선택) */
   passcode?: string;
@@ -77,6 +80,8 @@ export interface TransferState {
   total: number;
   percent: number;
   canceled: boolean;
+  /** 다운로드·압축처럼 전송 안에서 단계가 바뀔 때 표시할 문구 */
+  label?: string;
 }
 
 export interface Toast {

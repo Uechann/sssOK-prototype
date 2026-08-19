@@ -397,25 +397,26 @@ export function useRoom(code: string | undefined): Room | undefined {
  * 로컬 모드에서는 아무 것도 하지 않습니다(이미 로컬 상태가 전부니까요). */
 export function useRemoteRoomSync(code: string | undefined): boolean {
   const { dispatch, hydrated } = useStore();
-  /** 첫 스냅샷이 도착한 방 코드. 이게 없으면 `rooms[code]`가 비어 있어도
-   * "없는 방"이 아니라 "아직 못 불러온 방"입니다. */
-  const [resolved, setResolved] = useState<string | null>(null);
+  const [resolvedCode, setResolvedCode] = useState<string | undefined>(() =>
+    firebaseEnabled ? undefined : code,
+  );
 
   useEffect(() => {
     // hydrate가 rooms를 통째로 교체하므로, 그보다 먼저 구독을 걸면
     // 나중에 도착한 hydrate가 이미 받은 방 데이터를 덮어써버립니다.
-    if (!firebaseEnabled || !code || !hydrated) return;
-    setResolved(null);
+    if (!firebaseEnabled || !code) {
+      setResolvedCode(code);
+      return;
+    }
+    if (!hydrated) return;
     const unsubscribe = subscribeRoom(code, (room) => {
       dispatch({ type: 'syncRoom', code, room });
-      setResolved(code);
+      setResolvedCode(code);
     });
     return unsubscribe;
   }, [code, dispatch, hydrated]);
 
-  // 로컬 모드는 localStorage에서 동기로 읽으므로 기다릴 것이 없습니다
-  if (!firebaseEnabled || !code) return true;
-  return resolved === code;
+  return firebaseEnabled && Boolean(code) && resolvedCode !== code;
 }
 
 /** 방 안에서의 쓰기 동작 — Firebase가 켜져 있으면 Firestore에, 아니면 로컬 상태에 반영합니다.
