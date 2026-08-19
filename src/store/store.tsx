@@ -395,17 +395,28 @@ export function useRoom(code: string | undefined): Room | undefined {
 
 /** Firebase 모드에서 특정 방을 실시간 구독합니다. code가 바뀌면 자동으로 재구독합니다.
  * 로컬 모드에서는 아무 것도 하지 않습니다(이미 로컬 상태가 전부니까요). */
-export function useRemoteRoomSync(code: string | undefined): void {
+export function useRemoteRoomSync(code: string | undefined): boolean {
   const { dispatch, hydrated } = useStore();
+  const [resolvedCode, setResolvedCode] = useState<string | undefined>(() =>
+    firebaseEnabled ? undefined : code,
+  );
+
   useEffect(() => {
     // hydrate가 rooms를 통째로 교체하므로, 그보다 먼저 구독을 걸면
     // 나중에 도착한 hydrate가 이미 받은 방 데이터를 덮어써버립니다.
-    if (!firebaseEnabled || !code || !hydrated) return;
+    if (!firebaseEnabled || !code) {
+      setResolvedCode(code);
+      return;
+    }
+    if (!hydrated) return;
     const unsubscribe = subscribeRoom(code, (room) => {
       dispatch({ type: 'syncRoom', code, room });
+      setResolvedCode(code);
     });
     return unsubscribe;
   }, [code, dispatch, hydrated]);
+
+  return firebaseEnabled && Boolean(code) && resolvedCode !== code;
 }
 
 /** 방 안에서의 쓰기 동작 — Firebase가 켜져 있으면 Firestore에, 아니면 로컬 상태에 반영합니다.

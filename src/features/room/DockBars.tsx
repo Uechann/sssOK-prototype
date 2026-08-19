@@ -74,7 +74,7 @@ export function TransferBar({
   onCancel: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const label = transfer.kind === 'upload' ? '업로드 중' : '다운로드 중';
+  const label = transfer.label ?? (transfer.kind === 'upload' ? '업로드 중' : '다운로드 중');
 
   return (
     <>
@@ -102,9 +102,15 @@ export function TransferBar({
         >
           {transfer.done} / {transfer.total}
         </button>
-        <span className="dockbar__progress">
+        <span
+          className="dockbar__progress"
+          style={{ '--transfer-progress': `${transfer.percent}%` } as React.CSSProperties}
+        >
+          <span className="dockbar__progress-fill" aria-hidden="true" />
           <span className="dockbar__spinner" aria-hidden="true" />
-          {label}... {transfer.percent}%
+          <span className="dockbar__progress-label">
+            {label}... {transfer.percent}%
+          </span>
         </span>
         <button type="button" className="dockbar__cancel" onClick={onCancel}>
           취소

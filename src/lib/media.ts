@@ -1,7 +1,7 @@
 import type { MediaKind } from '../types';
 
-export const IMAGE_LIMIT = 10 * 1024 * 1024; // 이미지 ~10MB
-export const VIDEO_LIMIT = 1024 * 1024 * 1024; // 영상 ~1GB
+export const IMAGE_LIMIT = 30 * 1024 * 1024; // 이미지 최대 30MB
+export const VIDEO_LIMIT = 1024 * 1024 * 1024; // 영상 최대 1GB
 export const MAX_EDGE = 1600; // 긴 변 1600px로 리사이즈
 const TARGET_BYTES = 1.5 * 1024 * 1024; // 이 이하로 떨어지면 2차 압축 생략
 
@@ -21,7 +21,7 @@ export function limitFor(kind: MediaKind): number {
 }
 
 export function overLimitReason(file: File, kind: MediaKind): string | null {
-  if (kind === 'image' && file.size > IMAGE_LIMIT) return '이미지 최대 10MB 초과';
+  if (kind === 'image' && file.size > IMAGE_LIMIT) return '이미지 최대 30MB 초과';
   if (kind === 'video' && file.size > VIDEO_LIMIT) return '영상 최대 1GB 초과';
   return null;
 }

@@ -40,7 +40,15 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
   }, []);
 
   const uploadOne = useCallback(
-    async (item: UploadItem, folderIds: string[]): Promise<Photo> => {
+    async (
+      item: UploadItem,
+      folderIds: string[],
+      onItemProgress: (percent: number) => void,
+    ): Promise<Photo> => {
+      const reportProgress = (percent: number) => {
+        patch(item.id, { progress: percent });
+        onItemProgress(percent);
+      };
       // 이미지를 Firestore 문서 안에 그대로 넣는 모드에서는 예산 안에 들어오도록 더 압축합니다
       const inlineBudget = firebaseEnabled && item.kind === 'image' ? FIRESTORE_INLINE_BUDGET : undefined;
       // 자동 최적화: 1600px 리사이즈 + 압축 (GIF는 원본 유지)
@@ -62,7 +70,7 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
           uploaderId: me.id,
           uploaderName: me.name,
           folderIds,
-          onProgress: (percent) => patch(item.id, { progress: percent }),
+          onProgress: reportProgress,
         });
       }
 
@@ -70,7 +78,7 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
       for (let p = 20; p <= 100; p += 20) {
         if (canceled.current) break;
         await sleep(60);
-        patch(item.id, { progress: p });
+        reportProgress(p);
       }
       await blobStore.put(id, optimized.blob);
       const src = URL.createObjectURL(optimized.blob);
@@ -105,6 +113,8 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
       const uploaded: Photo[] = [];
       const failed: UploadItem[] = [];
       const folderIds = targetFolderId ? [targetFolderId] : [];
+      const totalBytes = queue.reduce((sum, item) => sum + Math.max(item.size, 1), 0);
+      let completedBytes = 0;
       let done = 0;
 
       setTransfer({ kind: 'upload', done: 0, total, percent: 0, canceled: false });
@@ -117,7 +127,19 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
           const reason = shouldFail();
           if (reason) throw new Error(reason);
 
-          const photo = await uploadOne(item, folderIds);
+          const photo = await uploadOne(item, folderIds, (itemPercent) => {
+            const currentBytes = Math.max(item.size, 1) * (itemPercent / 100);
+            setTransfer({
+              kind: 'upload',
+              done,
+              total,
+              percent: Math.min(
+                99,
+                Math.round(((completedBytes + currentBytes) / totalBytes) * 100),
+              ),
+              canceled: false,
+            });
+          });
           uploaded.push(photo);
           patch(item.id, { status: 'done', progress: 100 });
         } catch (error) {
@@ -133,11 +155,12 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         }
 
         done += 1;
+        completedBytes += Math.max(item.size, 1);
         setTransfer({
           kind: 'upload',
           done,
           total,
-          percent: Math.round((done / total) * 100),
+          percent: Math.round((completedBytes / totalBytes) * 100),
           canceled: false,
         });
       }

@@ -534,7 +534,7 @@ export function SizeLimitModal({
         ))}
       </div>
       <div className="limit-chips">
-        <span className="limit-chip">🖼️ 이미지 ~10MB</span>
+        <span className="limit-chip">🖼️ 이미지 ~30MB</span>
         <span className="limit-chip">🎬 영상 ~1GB</span>
       </div>
     </Modal>

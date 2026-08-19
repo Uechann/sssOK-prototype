@@ -167,13 +167,20 @@ type Matcher = (s: Session) => boolean;
 const has = (s: Session, name: string) => s.events.some((e) => e.name === name);
 const hasAny = (s: Session, names: string[]) => names.some((n) => has(s, n));
 
+/** 화면 이름 대조 — 빈 상태 접미사(`.empty`)가 붙은 것도 같은 화면으로 봅니다.
+ * RoomScreen은 사진이 하나도 없으면 `room.gallery.empty` 처럼 남기기 때문에,
+ * 정확히 일치로만 세면 **방을 막 만든 직후처럼 빈 방에 도달한 사람이 통째로 빠집니다.** */
+const hasScreen = (s: Session, name: string) =>
+  s.events.some((e) => e.name === name || e.name === `${name}.empty`);
+const hasAnyScreen = (s: Session, names: string[]) => names.some((n) => hasScreen(s, n));
+
 const HOST_STEPS: { key: string; label: string; match: Matcher }[] = [
   { key: 'start', label: '앱 진입', match: () => true },
   { key: 'onboarding', label: '온보딩 도달', match: (s) => has(s, 'onboarding') },
   { key: 'form', label: '방 만들기 폼 진입', match: (s) => has(s, 'room_create_form') },
   { key: 'created', label: '방 생성 완료', match: (s) => has(s, 'room_create') },
   { key: 'named', label: '이름 입력 완료', match: (s) => has(s, 'name_gate.submit') },
-  { key: 'room', label: '방 화면 도달', match: (s) => has(s, 'room.gallery') },
+  { key: 'room', label: '방 화면 도달', match: (s) => hasScreen(s, 'room.gallery') },
   {
     key: 'invited',
     label: '초대 공유',
@@ -192,11 +199,11 @@ const GUEST_STEPS: { key: string; label: string; match: Matcher }[] = [
   {
     key: 'gate',
     label: '입장 확인 통과',
-    match: (s) => hasAny(s, ['join.ok', 'name_gate', 'room.gallery']),
+    match: (s) => hasAnyScreen(s, ['join.ok', 'name_gate', 'room.gallery']),
   },
   { key: 'nameGate', label: '이름 입력 화면 도달', match: (s) => has(s, 'name_gate') },
   { key: 'named', label: '이름 입력 완료', match: (s) => has(s, 'name_gate.submit') },
-  { key: 'room', label: '방 화면 도달', match: (s) => has(s, 'room.gallery') },
+  { key: 'room', label: '방 화면 도달', match: (s) => hasScreen(s, 'room.gallery') },
   { key: 'viewed', label: '사진 자세히 보기', match: (s) => has(s, 'room.lightbox') },
   {
     key: 'downloaded',
@@ -366,7 +373,7 @@ export function sources(sessions: Session[]): CountedRow[] {
   for (const s of sessions) {
     const entry = map.get(s.src) ?? { total: 0, reached: 0 };
     entry.total += 1;
-    if (s.events.some((e) => e.name === 'room.gallery')) entry.reached += 1;
+    if (hasScreen(s, 'room.gallery')) entry.reached += 1;
     map.set(s.src, entry);
   }
   return [...map.entries()]
@@ -392,14 +399,14 @@ export interface Engagement {
 export function engagement(sessions: Session[]): Engagement {
   const devices = new Set(sessions.map((s) => s.did));
   const returning = new Set(sessions.filter((s) => s.visitIndex > 1).map((s) => s.did));
-  const inRoom = sessions.filter((s) => has(s, 'room.gallery'));
+  const inRoom = sessions.filter((s) => hasScreen(s, 'room.gallery'));
   const pct = (n: number) => (inRoom.length ? Math.round((n / inRoom.length) * 100) : 0);
   return {
     devices: devices.size,
     returningDevices: returning.size,
     medianActiveMs: median(sessions.map((s) => s.activeMs)),
     lightboxRate: pct(inRoom.filter((s) => has(s, 'room.lightbox')).length),
-    folderRate: pct(inRoom.filter((s) => hasAny(s, ['room.folder', 'folder.create'])).length),
+    folderRate: pct(inRoom.filter((s) => hasAnyScreen(s, ['room.folder', 'folder.create'])).length),
     repeatUploadRate: pct(
       inRoom.filter((s) => s.events.filter((e) => e.name === 'upload.done').length > 1).length,
     ),
