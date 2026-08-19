@@ -2,8 +2,7 @@ import type { MediaKind } from '../types';
 
 export const IMAGE_LIMIT = 10 * 1024 * 1024; // 이미지 최대 10MB
 export const VIDEO_LIMIT = 1024 * 1024 * 1024; // 영상 최대 1GB
-export const MAX_EDGE = 1600; // 긴 변 1600px로 리사이즈
-const TARGET_BYTES = 1.5 * 1024 * 1024; // 이 이하로 떨어지면 2차 압축 생략
+export const MAX_EDGE = 1600; // 영상 썸네일 긴 변 리사이즈 기준
 
 export function kindOf(file: File): MediaKind | null {
   if (file.type.startsWith('image/')) return 'image';
@@ -42,10 +41,6 @@ function drawToCanvas(source: CanvasImageSource, w: number, h: number): HTMLCanv
   return canvas;
 }
 
-function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
-}
-
 function fitted(w: number, h: number): [number, number] {
   const longest = Math.max(w, h);
   if (longest <= MAX_EDGE) return [w, h];
@@ -53,8 +48,7 @@ function fitted(w: number, h: number): [number, number] {
   return [Math.round(w * ratio), Math.round(h * ratio)];
 }
 
-/** 이미지 자동 최적화: 1600px 리사이즈 + 압축, 여전히 크면 2차 압축.
- * GIF는 애니메이션이 깨지므로 원본을 그대로 유지합니다. */
+/** 이미지는 Storage에 원본 그대로 올리고, 표시용 가로·세로만 읽어옵니다. */
 async function optimizeImage(file: File): Promise<OptimizedMedia> {
   const url = URL.createObjectURL(file);
   try {
@@ -64,24 +58,7 @@ async function optimizeImage(file: File): Promise<OptimizedMedia> {
       el.onerror = () => reject(new Error('이미지를 읽지 못했어요'));
       el.src = url;
     });
-
-    if (file.type === 'image/gif') {
-      // GIF는 다시 그리면 애니메이션이 깨지므로 원본을 그대로 씁니다.
-      return { blob: file, width: img.naturalWidth, height: img.naturalHeight, poster: '' };
-    }
-
-    const [w, h] = fitted(img.naturalWidth, img.naturalHeight);
-    const canvas = drawToCanvas(img, w, h);
-    let blob = (await toBlob(canvas, 0.82)) ?? file;
-    if (blob.size > TARGET_BYTES) {
-      // 2차 압축
-      blob = (await toBlob(canvas, 0.62)) ?? blob;
-    }
-    // 최적화가 오히려 손해면 원본 유지
-    if (blob.size >= file.size && w === img.naturalWidth) {
-      return { blob: file, width: w, height: h, poster: '' };
-    }
-    return { blob, width: w, height: h, poster: '' };
+    return { blob: file, width: img.naturalWidth, height: img.naturalHeight, poster: '' };
   } finally {
     URL.revokeObjectURL(url);
   }
