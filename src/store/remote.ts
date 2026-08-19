@@ -27,6 +27,7 @@ import {
   deleteObject,
   getDownloadURL,
   ref,
+  uploadBytes,
   uploadBytesResumable,
   type UploadTaskSnapshot,
 } from 'firebase/storage';
@@ -267,15 +268,16 @@ function toPhoto(id: string, data: PhotoDoc): Photo {
   };
 }
 
-/** 이미지·영상 모두 Firestore 문서엔 담기엔 크므로 Storage에 올립니다.
- * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
-export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
-  const path = `sssok/${input.code}/${input.id}/${input.name}`;
+// 이 이상은(원본을 그대로 올리는 이미지 중 큰 편, 또는 GIF) 끊겨도 이어 올릴 수 있는
+// resumable 업로드로 보냅니다. 그 아래는 세션 핸드셰이크 없이 한 번에 보냅니다.
+const RESUMABLE_THRESHOLD = 5 * 1024 * 1024;
+
+/** 세션 생성→전송→확인을 거치는 재개 가능 업로드. 큰 파일에 씁니다. */
+function uploadResumable(input: UploadInput, path: string): Promise<string> {
   const storageRef = ref(storage, path);
   const task = uploadBytesResumable(storageRef, input.blob, {
     contentType: input.blob.type || undefined,
   });
-
   return new Promise((resolve, reject) => {
     task.on(
       'state_changed',
@@ -284,35 +286,77 @@ export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
       },
       reject,
       () => {
-        void (async () => {
-          try {
-            const src = await getDownloadURL(task.snapshot.ref);
-            const data: PhotoDoc = {
-              name: input.name,
-              kind: input.kind,
-              src,
-              poster: input.poster || src,
-              width: input.width,
-              height: input.height,
-              size: input.blob.size,
-              originalSize: input.originalSize,
-              uploaderId: input.uploaderId,
-              uploaderName: input.uploaderName,
-              createdAt: Date.now(),
-              folderIds: input.folderIds,
-              storagePath: path,
-              // Firestore는 undefined 필드를 거부하므로 값이 있을 때만 넣습니다
-              ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
-            };
-            await setDoc(photoRef(input.code, input.id), data);
-            resolve(toPhoto(input.id, data));
-          } catch (error) {
-            reject(error as Error);
-          }
-        })();
+        getDownloadURL(task.snapshot.ref).then(resolve, reject);
       },
     );
   });
+}
+
+/** 한 번의 PUT으로 끝내는 업로드. 세션 핸드셰이크가 없어 작은 파일에 훨씬 빠릅니다. */
+async function uploadSingle(input: UploadInput, path: string): Promise<string> {
+  const storageRef = ref(storage, path);
+  input.onProgress?.(50);
+  await uploadBytes(storageRef, input.blob, { contentType: input.blob.type || undefined });
+  return getDownloadURL(storageRef);
+}
+
+/** 이미지 — 압축을 거쳐 대부분 작으므로 단일 PUT으로 올립니다. 압축이 안 통하는
+ * 큰 GIF 등만 resumable로 보냅니다.
+ * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
+async function uploadImageToStorage(input: UploadInput): Promise<Photo> {
+  const path = `sssok/${input.code}/${input.id}/${input.name}`;
+  const src =
+    input.blob.size > RESUMABLE_THRESHOLD
+      ? await uploadResumable(input, path)
+      : await uploadSingle(input, path);
+  input.onProgress?.(100);
+  const data: PhotoDoc = {
+    name: input.name,
+    kind: 'image',
+    src,
+    poster: '',
+    width: input.width,
+    height: input.height,
+    size: input.blob.size,
+    originalSize: input.originalSize,
+    uploaderId: input.uploaderId,
+    uploaderName: input.uploaderName,
+    createdAt: Date.now(),
+    folderIds: input.folderIds,
+    storagePath: path,
+  };
+  await setDoc(photoRef(input.code, input.id), data);
+  return toPhoto(input.id, data);
+}
+
+/** 영상 — 용량이 커서(최대 1GB) 항상 resumable로 올립니다.
+ * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
+async function uploadVideoToStorage(input: UploadInput): Promise<Photo> {
+  const path = `sssok/${input.code}/${input.id}/${input.name}`;
+  const src = await uploadResumable(input, path);
+  const data: PhotoDoc = {
+    name: input.name,
+    kind: 'video',
+    src,
+    poster: input.poster || src,
+    width: input.width,
+    height: input.height,
+    size: input.blob.size,
+    originalSize: input.originalSize,
+    uploaderId: input.uploaderId,
+    uploaderName: input.uploaderName,
+    createdAt: Date.now(),
+    folderIds: input.folderIds,
+    storagePath: path,
+    // Firestore는 undefined 필드를 거부하므로 값이 있을 때만 넣습니다
+    ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
+  };
+  await setDoc(photoRef(input.code, input.id), data);
+  return toPhoto(input.id, data);
+}
+
+export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
+  return input.kind === 'image' ? uploadImageToStorage(input) : uploadVideoToStorage(input);
 }
 
 export async function removePhotosRemote(code: string, ids: string[]): Promise<void> {
