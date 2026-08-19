@@ -395,7 +395,7 @@
 .fab {
   position: absolute;
   right: 16px;
-  bottom: calc(36px + var(--safe-b));
+  bottom: calc(44px + var(--safe-b));
   z-index: 20;
   display: inline-flex;
   align-items: center;
@@ -472,8 +472,10 @@
   animation: toast-up 200ms var(--ease);
 }
 .dockbar--selection {
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  right: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   bottom: calc(36px + var(--safe-b));
   min-height: 0;
   gap: 0;
@@ -481,6 +483,7 @@
   border: 1.25px solid #e5ded1;
   border-radius: var(--r-full);
   box-shadow: 0 12.42px 24.84px rgba(41, 28, 20, 0.14);
+  transform: translateX(-50%);
 }
 .dockbar--selection .dockbar__cta {
   position: absolute;
@@ -505,8 +508,10 @@
   background: var(--danger-soft);
 }
 .dockbar--transfer {
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  right: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   bottom: calc(36px + var(--safe-b));
   height: 68px;
   min-height: 68px;
@@ -514,6 +519,7 @@
   border: 1.25px solid #e5ded1;
   border-radius: var(--r-full);
   box-shadow: 0 12.42px 24.84px rgba(41, 28, 20, 0.14);
+  transform: translateX(-50%);
 }
 .dockbar--transfer .dockbar__progress {
   position: absolute;
@@ -710,8 +716,10 @@
 /* 파일별 상태 목록 */
 .file-status {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  right: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   bottom: calc(88px + var(--safe-b));
   z-index: 25;
   max-height: 220px;
@@ -720,7 +728,8 @@
   border-radius: var(--r-lg);
   background: var(--white);
   box-shadow: var(--sh-pop);
-  animation: pop-in 160ms var(--ease);
+  transform: translateX(-50%);
+  animation: toast-up 160ms var(--ease);
 }
 .file-status__row {
   display: flex;
@@ -770,8 +779,10 @@
 /* ── 네트워크 배너 ─────────────────────────────────── */
 .net-banner {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  right: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   bottom: calc(16px + var(--safe-b));
   z-index: 26;
   display: flex;
@@ -781,6 +792,7 @@
   border-radius: var(--r-lg);
   background: var(--orange-soft);
   color: var(--ink);
+  transform: translateX(-50%);
   animation: toast-up 200ms var(--ease);
 }
 .net-banner__title {
@@ -1038,9 +1050,14 @@
   flex: none;
 }
 .lightbox__media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  object-position: center;
   display: block;
   transition: transform 220ms var(--ease);
   user-select: none;
@@ -1171,6 +1188,18 @@
   font-size: 11px;
   color: #7c7973;
   text-align: center;
+}
+
+@media (min-width: 768px) {
+  .lightbox {
+    position: fixed;
+    inset: 0;
+  }
+
+  .lightbox__stage {
+    margin-right: 48px;
+    margin-left: 48px;
+  }
 }
 
 /* ── 데모 시나리오 (프로토타입 전용) ────────────────── */

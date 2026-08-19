@@ -15,7 +15,7 @@ body {
   margin: 0;
   font-family: var(--font);
   color: var(--ink);
-  background: #efece6;
+  background: var(--surface);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
   /* 한국어는 어절 단위로 줄바꿈해야 읽기 좋습니다 */
@@ -75,7 +75,6 @@ p {
 @media (min-width: 768px) {
   .app-shell {
     max-width: 1180px;
-    box-shadow: 0 0 0 1px var(--line);
   }
 }
 

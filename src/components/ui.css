@@ -352,6 +352,7 @@
 
 /* ── 바텀시트 ──────────────────────────────────────── */
 .sheet {
+  position: relative;
   width: 100%;
   background: var(--white);
   border-radius: var(--r-2xl) var(--r-2xl) 0 0;
@@ -374,6 +375,9 @@
 }
 .sheet__grabber[data-draggable='true']:active {
   cursor: grabbing;
+}
+.sheet__desktop-close {
+  display: none;
 }
 .sheet__head {
   display: flex;
@@ -399,6 +403,62 @@
   display: flex;
   justify-content: center;
   margin: -4px 0 16px;
+}
+
+/* PC에서는 바텀시트를 같은 컴포넌트 구조의 중앙 모달로 보여줍니다. */
+@media (min-width: 768px) {
+  .overlay {
+    position: fixed;
+    inset: 0;
+  }
+
+  .overlay--bottom {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .sheet {
+    width: 100%;
+    max-width: 440px;
+    max-height: calc(100% - 48px);
+    border-radius: var(--r-2xl);
+    padding-top: 32px;
+    padding-bottom: 32px;
+    animation: pop-in var(--dur) var(--ease);
+  }
+
+  .sheet.name-sheet,
+  .sheet.folder-name-sheet,
+  .sheet.download-sheet {
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  .sheet__grabber {
+    display: none;
+  }
+
+  .sheet__desktop-close {
+    position: absolute;
+    top: 26px;
+    right: 16px;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--gray-500);
+  }
+
+  .sheet__desktop-close:hover {
+    background: var(--surface-soft);
+    color: var(--ink);
+  }
+
+  .sheet:has(> .sheet__desktop-close) .sheet__head {
+    padding-right: 36px;
+  }
 }
 
 /* 최초 입장 이름 입력 시트 */
@@ -633,14 +693,17 @@
 /* ── 토스트 ────────────────────────────────────────── */
 .toast-layer {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  right: auto;
+  width: calc(100% - 32px);
+  max-width: 520px;
   bottom: calc(36px + var(--safe-b));
   z-index: 50;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+  transform: translateX(-50%);
   transition: bottom var(--dur) var(--ease);
 }
 /* 선택 바 · 진행 바 · 네트워크 배너가 떠 있으면 토스트를 위로 밀어 올립니다 */

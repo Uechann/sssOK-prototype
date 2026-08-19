@@ -11,13 +11,12 @@ interface TileProps {
   photo: Photo;
   mine: boolean;
   selected: boolean;
-  desktop: boolean;
   onToggle: (shift: boolean) => void;
   onOpen: () => void;
   onSlideStart: (clientX: number, clientY: number) => void;
 }
 
-function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideStart }: TileProps) {
+function PhotoTile({ photo, mine, selected, onToggle, onOpen, onSlideStart }: TileProps) {
   const lastTouchAt = useRef(0);
 
   return (
@@ -29,12 +28,9 @@ function PhotoTile({ photo, mine, selected, desktop, onToggle, onOpen, onSlideSt
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`${photo.uploaderName}님이 올린 ${photo.name}`}
-      onClick={(event) => {
-        // 웹: 클릭=선택 / 더블클릭=자세히 보기, 모바일: 탭=자세히 보기
-        if (desktop) onToggle(event.shiftKey);
-        else onOpen();
-      }}
-      onDoubleClick={() => desktop && onOpen()}
+      // PC·모바일 모두 사진 본문 클릭은 자세히 보기로 통일합니다.
+      // 선택은 체크 버튼과 PC 드래그 영역 선택으로만 처리합니다.
+      onClick={onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter') onOpen();
         if (event.key === ' ') {
@@ -135,12 +131,15 @@ export function Gallery({
           photo={photo}
           mine={photo.uploaderId === meId}
           selected={selection.isSelected(photo.id)}
-          desktop={desktop}
           onToggle={(shift) => {
             if (selection.consumeMarqueeClick()) return;
             selection.toggle(photo.id, { shift });
           }}
-          onOpen={() => onOpen(photo.id)}
+          onOpen={() => {
+            // PC 드래그 선택 직후 발생하는 click은 상세 열기로 이어지지 않게 합니다.
+            if (selection.consumeMarqueeClick()) return;
+            onOpen(photo.id);
+          }}
           onSlideStart={(clientX, clientY) => selection.onSlideStart(photo.id, clientX, clientY)}
         />
       ))}
