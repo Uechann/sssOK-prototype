@@ -36,7 +36,9 @@ export function App() {
   // 지금 보고 있는 방 코드 — Firebase 모드에서는 이 방만 실시간 구독합니다
   const currentCode =
     route.name === 'room' || route.name === 'settings' ? route.code : undefined;
-  useRemoteRoomSync(currentCode);
+  /** 첫 스냅샷이 도착했는지. 도착 전에는 `rooms[code]`가 비어 있어도
+   * "잘못된 링크"로 단정하면 안 됩니다 — 정상 링크에서도 잠깐 비어 있습니다. */
+  const roomResolved = useRemoteRoomSync(currentCode);
   const actions = useRoomActions(currentCode ?? '');
 
   useEffect(() => startAnalytics(recordEvent), []);
@@ -98,20 +100,25 @@ export function App() {
       case 'join':
         return 'join';
       case 'settings':
-        return rooms[route.code] ? 'room.settings' : 'invalid_link';
+        if (rooms[route.code]) return 'room.settings';
+        return roomResolved ? 'invalid_link' : null;
       case 'badLink':
         return 'invalid_link';
       case 'admin':
         return null; // 개발자 화면은 계측하지 않습니다
       case 'room': {
         const room = rooms[route.code];
-        if (!room) return online ? 'invalid_link' : 'offline';
+        // 아직 불러오는 중 — 여기서 실패로 남기면 정상 링크가 전부 실패로 집계됩니다
+        if (!room) {
+          if (!roomResolved) return null;
+          return online ? 'invalid_link' : 'offline';
+        }
         if (isExpired(room)) return 'room_expired';
         const needsName = newRoomCode === room.code || !me.name;
         return needsName ? 'name_gate' : null;
       }
     }
-  }, [hydrated, isExpired, me.name, newRoomCode, online, rooms, route]);
+  }, [hydrated, isExpired, me.name, newRoomCode, online, roomResolved, rooms, route]);
 
   useEffect(() => {
     if (screenName === 'invalid_link') fail('entry.invalid_link');
@@ -179,7 +186,10 @@ export function App() {
 
       case 'settings': {
         const room = rooms[route.code];
-        if (!room) return <InvalidLinkScreen onJoinByCode={() => navigate({ name: 'join' })} />;
+        if (!room) {
+          if (!roomResolved) return <div className="screen name-gate__backdrop" />;
+          return <InvalidLinkScreen onJoinByCode={() => navigate({ name: 'join' })} />;
+        }
         return (
           <RoomForm
             mode="edit"
@@ -208,6 +218,9 @@ export function App() {
         const room = rooms[route.code];
 
         if (!room) {
+          // 첫 스냅샷이 오기 전에는 아무것도 단정하지 않습니다.
+          // 여기서 "잘못된 링크"를 보여주면 정상 링크로 들어온 사람이 잠깐 오류 화면을 봅니다.
+          if (!roomResolved) return <div className="screen name-gate__backdrop" />;
           // 오프라인이라 방을 못 불러오는 경우와 잘못된 링크를 구분합니다
           if (!online) return <OfflineScreen onRetry={() => window.location.reload()} />;
           return <InvalidLinkScreen onJoinByCode={() => navigate({ name: 'join' })} />;
@@ -287,6 +300,7 @@ export function App() {
     navigate,
     newRoomCode,
     online,
+    roomResolved,
     rooms,
     route,
     setName,
