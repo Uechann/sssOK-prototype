@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as amplitude from '@amplitude/unified';
 import type { Photo, PhotoFilter, Room } from '../../types';
 import { useStore, useRoomActions, type Me } from '../../store/store';
 import { useIsDesktop, useOnline, useRemaining } from '../../lib/hooks';
@@ -8,6 +9,7 @@ import { blobStore } from '../../lib/idb';
 import { Mascot, MascotImage } from '../../components/Mascot';
 import { firebaseEnabled } from '../../lib/firebase';
 import { action, screen, setScenario } from '../../lib/analytics';
+import { AMPLITUDE_EVENTS } from '../../lib/amplitudeEvents';
 import { Popover, PopoverItem, PopoverSeparator } from '../../components/ui';
 import {
   IconChevronUp,
@@ -182,7 +184,8 @@ export function RoomScreen({
   /* ── 계측 ─────────────────────────────────────────── */
   /** 라우트는 `room` 하나지만 사용자 시간의 대부분이 이 안에서 흐릅니다.
    * 체류시간이 의미를 가지려면 방 안을 이만큼 쪼개야 합니다. */
-  const emptySuffix = photos.length === 0 ? '.empty' : '';
+  const isEmpty = photos.length === 0;
+  const emptySuffix = isEmpty ? '.empty' : '';
   const subScreen = lightboxId
     ? 'room.lightbox'
     : overlay
@@ -196,6 +199,26 @@ export function RoomScreen({
   useEffect(() => {
     screen(subScreen);
   }, [subScreen]);
+
+  /** Amplitude에는 다이얼로그를 뺀, 실제로 탐색 가능한 화면만 남깁니다.
+   * (컨벤션 2-4: 의미 있는 행동만 추적 — 시트/모달은 노이즈가 큽니다) */
+  const roomScreenName = lightboxId
+    ? 'lightbox'
+    : overlay
+      ? null
+      : activeFolderId
+        ? 'folder'
+        : filter !== 'all'
+          ? 'filter'
+          : 'gallery';
+
+  useEffect(() => {
+    if (!roomScreenName) return;
+    amplitude.track(AMPLITUDE_EVENTS.ROOM_SCREEN_VIEWED, {
+      screen_name: roomScreenName,
+      is_empty: isEmpty,
+    });
+  }, [roomScreenName, isEmpty]);
 
   /** 열었다가 그냥 닫은 시트·모달은 "여기 원하는 게 없었다"는 신호입니다.
    * 확정과 포기를 나눠 남깁니다. */
@@ -304,7 +327,7 @@ export function RoomScreen({
     void download.start([photo], 'each', false);
   };
 
-  const removePhotos = (ids: string[]) => {
+  const removePhotos = (ids: string[], from: 'selection' | 'lightbox' = 'selection') => {
     ids.forEach((id) => void blobStore.del(id));
     actions.removePhotos(ids);
     selection.setOutcome('delete');
@@ -312,6 +335,7 @@ export function RoomScreen({
     closeOverlay(true);
     setLightboxId(null);
     action('photo.delete', { count: ids.length });
+    amplitude.track(AMPLITUDE_EVENTS.PHOTO_DELETED, { count: ids.length, from });
     toast(`사진 ${ids.length}장을 삭제했어요.`);
   };
 
@@ -319,12 +343,14 @@ export function RoomScreen({
     setPopover(null);
     const ok = await copyText(inviteUrl(room.code, 'link'));
     action('invite.copy_link', { ok });
+    amplitude.track(AMPLITUDE_EVENTS.INVITE_LINK_COPIED, { is_success: ok });
     toast(ok ? '공유 링크를 복사했어요.' : '링크 복사에 실패했어요.', ok ? 'success' : 'warn');
   };
 
   const copyCode = async () => {
     const ok = await copyText(room.code);
     action('invite.copy_code', { ok });
+    amplitude.track(AMPLITUDE_EVENTS.INVITE_CODE_COPIED, { is_success: ok });
     closeOverlay(true);
     toast(ok ? '참여 코드를 복사했어요.' : '코드 복사에 실패했어요.', ok ? 'success' : 'warn');
   };
@@ -668,6 +694,7 @@ export function RoomScreen({
           onClose={() => setOverlay(null)}
           onConfirm={() => {
             closeOverlay(true);
+            amplitude.track(AMPLITUDE_EVENTS.ROOM_DELETED, { photo_count: room.photos.length });
             onLeaveHome();
           }}
         />
@@ -734,7 +761,7 @@ export function RoomScreen({
           canDelete={canDelete(photos[lightboxIndex])}
           onIndexChange={(next) => setLightboxId(photos[next].id)}
           onToggleSelect={() => selection.toggle(photos[lightboxIndex].id)}
-          onDelete={() => removePhotos([photos[lightboxIndex].id])}
+          onDelete={() => removePhotos([photos[lightboxIndex].id], 'lightbox')}
           onDownload={() => downloadOne(photos[lightboxIndex])}
           onClose={() => setLightboxId(null)}
         />

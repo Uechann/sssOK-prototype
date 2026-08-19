@@ -9,10 +9,16 @@ export const AMPLITUDE_EVENTS = {
   ROOM_JOIN_STARTED: 'Room Join Started',
   ROOM_JOINED: 'Room Joined',
   ROOM_JOIN_FAILED: 'Room Join Failed',
+  ROOM_DELETED: 'Room Deleted',
+  ROOM_SCREEN_VIEWED: 'Room Screen Viewed',
+  ROOM_SETTINGS_VIEWED: 'Room Settings Viewed',
   PHOTO_UPLOADED: 'Photo Uploaded',
   PHOTO_UPLOAD_FAILED: 'Photo Upload Failed',
   PHOTO_DOWNLOADED: 'Photo Downloaded',
   PHOTO_DOWNLOAD_FAILED: 'Photo Download Failed',
+  PHOTO_DELETED: 'Photo Deleted',
+  INVITE_LINK_COPIED: 'Invite Link Copied',
+  INVITE_CODE_COPIED: 'Invite Code Copied',
 } as const;
 
 /** 유입 경로(?src=)를 유저 속성으로 한 번만 기록 — 이후 모든 차트를 채널별로 나눠 볼 수 있습니다.

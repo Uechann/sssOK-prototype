@@ -117,6 +117,7 @@ export function App() {
         expiry_hours: value.expiryHours,
         upload_policy: value.uploadPolicy,
         has_passcode: Boolean(value.passcode),
+        entry_src: getEntrySrc(),
       });
       setNewRoomCode(room.code);
       navigate({ name: "room", code: room.code });
@@ -168,6 +169,8 @@ export function App() {
   useEffect(() => {
     if (screenName === "onboarding") {
       amplitude.track(AMPLITUDE_EVENTS.HOME_PAGE_VIEWED, { prompt_version: "BA400.4" });
+    } else if (screenName === "room.settings") {
+      amplitude.track(AMPLITUDE_EVENTS.ROOM_SETTINGS_VIEWED);
     }
   }, [screenName]);
 
@@ -236,6 +239,7 @@ export function App() {
               action("join.ok");
               amplitude.track(AMPLITUDE_EVENTS.ROOM_JOINED, {
                 has_passcode: Boolean(room.passcode),
+                entry_src: getEntrySrc(),
               });
               navigate({ name: "room", code });
               return null;
