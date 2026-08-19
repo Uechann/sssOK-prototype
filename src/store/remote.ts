@@ -32,7 +32,6 @@ import {
 } from 'firebase/storage';
 import type { ExpiryHours, Folder, Member, Photo, Room, UploadPolicy } from '../types';
 import { db, storage } from '../lib/firebase';
-import { blobToDataUrl } from '../lib/media';
 
 const ROOMS = 'sssok_rooms';
 const CHUNK = 30; // Firestore 'in' 쿼리 상한
@@ -72,8 +71,7 @@ interface PhotoDoc {
   createdAt: number;
   folderIds: string[];
   place?: string;
-  /** 삭제 시 Storage 객체를 함께 지우기 위한 내부 필드 — 앱 도메인 타입에는 노출하지 않습니다.
-   * 이미지는 Storage를 쓰지 않고 src에 데이터를 그대로 담기 때문에 없습니다. */
+  /** 삭제 시 Storage 객체를 함께 지우기 위한 내부 필드 — 앱 도메인 타입에는 노출하지 않습니다. */
   storagePath?: string;
 }
 
@@ -236,7 +234,7 @@ interface UploadInput {
   name: string;
   kind: 'image' | 'video';
   blob: Blob;
-  /** 영상 썸네일 — data: URL 그대로 문서에 저장합니다(작아서 Firestore 문서 한도에 여유) */
+  /** 영상 썸네일 — data: URL 그대로 문서에 저장합니다(이미지는 빈 문자열 → src로 대체) */
   poster: string;
   width: number;
   height: number;
@@ -269,36 +267,9 @@ function toPhoto(id: string, data: PhotoDoc): Photo {
   };
 }
 
-/** 이미지 — Storage 없이 Firestore 문서 안에 base64로 그대로 넣습니다.
- * `useUpload`가 이미 FIRESTORE_INLINE_BUDGET 아래로 압축해서 넘겨줍니다.
- * poster는 src와 완전히 같은 문자열이라(이미지는 썸네일=원본) 문서에 중복 저장하지
- * 않고 비워둡니다 — 안 그러면 문서 용량이 그대로 두 배가 돼요. */
-async function uploadImageInline(input: UploadInput): Promise<Photo> {
-  input.onProgress?.(40);
-  const src = await blobToDataUrl(input.blob);
-  input.onProgress?.(80);
-  const data: PhotoDoc = {
-    name: input.name,
-    kind: 'image',
-    src,
-    poster: '',
-    width: input.width,
-    height: input.height,
-    size: input.blob.size,
-    originalSize: input.originalSize,
-    uploaderId: input.uploaderId,
-    uploaderName: input.uploaderName,
-    createdAt: Date.now(),
-    folderIds: input.folderIds,
-  };
-  await setDoc(photoRef(input.code, input.id), data);
-  input.onProgress?.(100);
-  return toPhoto(input.id, data);
-}
-
-/** 영상 — Firestore 문서에 담기엔 너무 커서 Storage에 올립니다.
+/** 이미지·영상 모두 Firestore 문서엔 담기엔 크므로 Storage에 올립니다.
  * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
-function uploadVideoToStorage(input: UploadInput): Promise<Photo> {
+export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
   const path = `sssok/${input.code}/${input.id}/${input.name}`;
   const storageRef = ref(storage, path);
   const task = uploadBytesResumable(storageRef, input.blob, {
@@ -318,19 +289,20 @@ function uploadVideoToStorage(input: UploadInput): Promise<Photo> {
             const src = await getDownloadURL(task.snapshot.ref);
             const data: PhotoDoc = {
               name: input.name,
-              kind: 'video',
+              kind: input.kind,
               src,
               poster: input.poster || src,
               width: input.width,
               height: input.height,
               size: input.blob.size,
               originalSize: input.originalSize,
-              durationSec: input.durationSec,
               uploaderId: input.uploaderId,
               uploaderName: input.uploaderName,
               createdAt: Date.now(),
               folderIds: input.folderIds,
               storagePath: path,
+              // Firestore는 undefined 필드를 거부하므로 값이 있을 때만 넣습니다
+              ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
             };
             await setDoc(photoRef(input.code, input.id), data);
             resolve(toPhoto(input.id, data));
@@ -341,10 +313,6 @@ function uploadVideoToStorage(input: UploadInput): Promise<Photo> {
       },
     );
   });
-}
-
-export function uploadPhotoRemote(input: UploadInput): Promise<Photo> {
-  return input.kind === 'image' ? uploadImageInline(input) : uploadVideoToStorage(input);
 }
 
 export async function removePhotosRemote(code: string, ids: string[]): Promise<void> {

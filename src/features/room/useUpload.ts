@@ -3,7 +3,7 @@ import * as amplitude from '@amplitude/unified';
 import type { Photo, TransferState, UploadItem } from '../../types';
 import { uid } from '../../lib/format';
 import { blobStore } from '../../lib/idb';
-import { FIRESTORE_INLINE_BUDGET, kindOf, optimize, overLimitReason } from '../../lib/media';
+import { kindOf, optimize, overLimitReason } from '../../lib/media';
 import { firebaseEnabled } from '../../lib/firebase';
 import { action, fail } from '../../lib/analytics';
 import { AMPLITUDE_EVENTS } from '../../lib/amplitudeEvents';
@@ -49,10 +49,8 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         patch(item.id, { progress: percent });
         onItemProgress(percent);
       };
-      // 이미지를 Firestore 문서 안에 그대로 넣는 모드에서는 예산 안에 들어오도록 더 압축합니다
-      const inlineBudget = firebaseEnabled && item.kind === 'image' ? FIRESTORE_INLINE_BUDGET : undefined;
       // 자동 최적화: 1600px 리사이즈 + 압축 (GIF는 원본 유지)
-      const optimized = await optimize(item.file, item.kind, inlineBudget);
+      const optimized = await optimize(item.file, item.kind);
       const id = uid('p_');
 
       if (firebaseEnabled) {
