@@ -8,6 +8,7 @@ import {
   IconWifiOff,
 } from '../../components/Icons';
 import { IconButton } from '../../components/ui';
+import { useSmoothedPercent } from './useSmoothedPercent';
 import './room.css';
 
 /** 05-1 · 선택 시에만 노출되는 액션 바 */
@@ -75,6 +76,7 @@ export function TransferBar({
 }) {
   const [open, setOpen] = useState(false);
   const label = transfer.label ?? (transfer.kind === 'upload' ? '업로드 중' : '다운로드 중');
+  const displayPercent = useSmoothedPercent(transfer.percent);
 
   return (
     <>
@@ -104,12 +106,12 @@ export function TransferBar({
         </button>
         <span
           className="dockbar__progress"
-          style={{ '--transfer-progress': `${transfer.percent}%` } as React.CSSProperties}
+          style={{ '--transfer-progress': `${displayPercent}%` } as React.CSSProperties}
         >
           <span className="dockbar__progress-fill" aria-hidden="true" />
           <span className="dockbar__spinner" aria-hidden="true" />
           <span className="dockbar__progress-label">
-            {label}... {transfer.percent}%
+            {label}... {displayPercent}%
           </span>
         </span>
         <button type="button" className="dockbar__cancel" onClick={onCancel}>
