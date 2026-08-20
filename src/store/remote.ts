@@ -327,7 +327,12 @@ async function uploadImageToStorage(input: UploadInput): Promise<Photo> {
           input.onProgress?.(50);
           return putOnce(input.blob, path);
         })(),
-    input.thumb && thumbPath ? putOnce(input.thumb, thumbPath) : Promise.resolve(''),
+    // 썸네일은 있으면 좋은 부가물입니다. 실패해도(예: Storage 규칙이 아직 옛날 것이라
+    // thumb/ 경로가 막힌 경우) 원본 저장까지 같이 죽이지 않고 poster를 비워둡니다.
+    // 그러면 격자는 toPhoto의 `poster || src` 폴백으로 원본을 보게 됩니다.
+    input.thumb && thumbPath
+      ? putOnce(input.thumb, thumbPath).catch(() => '')
+      : Promise.resolve(''),
   ]);
   input.onProgress?.(100);
   const data: PhotoDoc = {
