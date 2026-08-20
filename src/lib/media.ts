@@ -4,6 +4,10 @@ export const IMAGE_LIMIT = 10 * 1024 * 1024; // 이미지 최대 10MB
 export const VIDEO_LIMIT = 1024 * 1024 * 1024; // 영상 최대 1GB
 export const MAX_EDGE = 1600; // 영상 썸네일 긴 변 리사이즈 기준
 
+/** 격자 타일용 축소본. 타일에 원본을 그대로 걸면 방 하나 여는 데 수십 MB가 나갑니다. */
+const THUMB_EDGE = 480;
+const THUMB_QUALITY = 0.7;
+
 export function kindOf(file: File): MediaKind | null {
   if (file.type.startsWith('image/')) return 'image';
   if (file.type.startsWith('video/')) return 'video';
@@ -24,8 +28,10 @@ export interface OptimizedMedia {
   blob: Blob;
   width: number;
   height: number;
-  /** 영상 썸네일 (이미지는 빈 문자열 → src를 그대로 씁니다) */
+  /** 영상 썸네일 data: URL (이미지는 빈 문자열 — 대신 thumb 블롭을 씁니다) */
   poster: string;
+  /** 격자 타일용 축소본. 영상은 poster를 쓰므로 없습니다. */
+  thumb?: Blob;
   durationSec?: number;
 }
 
@@ -41,6 +47,10 @@ function drawToCanvas(source: CanvasImageSource, w: number, h: number): HTMLCanv
   return canvas;
 }
 
+function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+}
+
 function fitted(w: number, h: number): [number, number] {
   const longest = Math.max(w, h);
   if (longest <= MAX_EDGE) return [w, h];
@@ -48,7 +58,15 @@ function fitted(w: number, h: number): [number, number] {
   return [Math.round(w * ratio), Math.round(h * ratio)];
 }
 
-/** 이미지는 Storage에 원본 그대로 올리고, 표시용 가로·세로만 읽어옵니다. */
+/** 격자 타일에 걸 480px 축소본. 원본을 대신 걸면 200px 타일에 1200만 화소를
+ * 디코드하게 되므로, 네트워크만이 아니라 렌더 비용도 여기서 갈립니다. */
+function makeThumb(source: CanvasImageSource, w: number, h: number): Promise<Blob | null> {
+  const ratio = Math.min(1, THUMB_EDGE / Math.max(w, h));
+  return toBlob(drawToCanvas(source, Math.round(w * ratio), Math.round(h * ratio)), THUMB_QUALITY);
+}
+
+/** 이미지는 Storage에 원본 그대로 올립니다 — 화질을 건드리지 않습니다.
+ * 대신 격자 타일용 축소본을 따로 만들어 원본과 나란히 저장합니다. */
 async function optimizeImage(file: File): Promise<OptimizedMedia> {
   const url = URL.createObjectURL(file);
   try {
@@ -58,7 +76,12 @@ async function optimizeImage(file: File): Promise<OptimizedMedia> {
       el.onerror = () => reject(new Error('이미지를 읽지 못했어요'));
       el.src = url;
     });
-    return { blob: file, width: img.naturalWidth, height: img.naturalHeight, poster: '' };
+    const width = img.naturalWidth;
+    const height = img.naturalHeight;
+    // 썸네일을 못 만들어도(캔버스 실패 등) 업로드 자체는 계속합니다 —
+    // thumb 없이 올라간 사진은 격자에서 원본으로 폴백됩니다.
+    const thumb = (await makeThumb(img, width, height)) ?? undefined;
+    return { blob: file, width, height, poster: '', thumb };
   } finally {
     URL.revokeObjectURL(url);
   }

@@ -62,7 +62,8 @@ export function useUpload({
         patch(item.id, { progress: percent });
         onItemProgress(percent);
       };
-      // 자동 최적화: 1600px 리사이즈 + 압축 (GIF는 원본 유지)
+      // 이미지·영상 모두 원본 그대로 올립니다. optimize는 표시용 치수와
+      // 격자 타일용 축소본(썸네일)만 만들어 옵니다.
       const optimized = await optimize(item.file, item.kind);
       const id = uid('p_');
 
@@ -74,6 +75,7 @@ export function useUpload({
           kind: item.kind,
           blob: optimized.blob,
           poster: optimized.poster,
+          thumb: optimized.thumb,
           width: optimized.width,
           height: optimized.height,
           originalSize: item.size,
