@@ -17,6 +17,10 @@ export interface OversizedFile {
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
+// 동시에 이만큼만 업로드합니다 — 순차로 하나씩 기다리면 파일마다 왕복 지연이
+// 그대로 쌓이는데, 몇 개씩 겹쳐 보내면 그 지연이 겹쳐 지나가 총 시간이 줄어듭니다.
+const UPLOAD_CONCURRENCY = 3;
+
 interface Options {
   me: { id: string; name: string };
   roomCode: string;
@@ -126,8 +130,7 @@ export function useUpload({
 
       setTransfer({ kind: 'upload', done: 0, total, percent: 0, canceled: false });
 
-      for (const item of queue) {
-        if (canceled.current) break;
+      const uploadItem = async (item: UploadItem) => {
         patch(item.id, { status: 'uploading', progress: 0 });
 
         try {
@@ -171,7 +174,21 @@ export function useUpload({
           percent: Math.round((completedBytes / totalBytes) * 100),
           canceled: false,
         });
-      }
+      };
+
+      // UPLOAD_CONCURRENCY개짜리 워커 풀 — 각 워커가 큐에서 하나씩 뽑아 순서대로
+      // 처리하되, 워커 여러 개가 동시에 돌아서 파일들이 겹쳐 업로드됩니다.
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < queue.length) {
+          if (canceled.current) return;
+          const item = queue[cursor++];
+          await uploadItem(item);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, queue.length) }, worker),
+      );
 
       action('upload.done', {
         uploaded: uploaded.length,
