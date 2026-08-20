@@ -125,30 +125,37 @@ export function useUpload({
       const failed: UploadItem[] = [];
       const folderIds = targetFolderId ? [targetFolderId] : [];
       const totalBytes = queue.reduce((sum, item) => sum + Math.max(item.size, 1), 0);
-      let completedBytes = 0;
+      // 아이템별 "지금까지 올라간 바이트"를 따로 들고 있다가 매번 다 더합니다.
+      // 여러 워커가 동시에 진행되므로, 콜백 하나가 자기 몫만 completedBytes에 더하는
+      // 방식이면 다른 워커의 진행분이 누락돼 전체 퍼센트가 순간적으로 뒤로 튑니다.
+      const progressBytes = new Map<string, number>();
       let done = 0;
+
+      const reportOverall = () => {
+        let sum = 0;
+        for (const bytes of progressBytes.values()) sum += bytes;
+        setTransfer({
+          kind: 'upload',
+          done,
+          total,
+          percent: Math.min(99, Math.round((sum / totalBytes) * 100)),
+          canceled: false,
+        });
+      };
 
       setTransfer({ kind: 'upload', done: 0, total, percent: 0, canceled: false });
 
       const uploadItem = async (item: UploadItem) => {
         patch(item.id, { status: 'uploading', progress: 0 });
+        progressBytes.set(item.id, 0);
 
         try {
           const reason = shouldFail();
           if (reason) throw new Error(reason);
 
           const photo = await uploadOne(item, folderIds, (itemPercent) => {
-            const currentBytes = Math.max(item.size, 1) * (itemPercent / 100);
-            setTransfer({
-              kind: 'upload',
-              done,
-              total,
-              percent: Math.min(
-                99,
-                Math.round(((completedBytes + currentBytes) / totalBytes) * 100),
-              ),
-              canceled: false,
-            });
+            progressBytes.set(item.id, Math.max(item.size, 1) * (itemPercent / 100));
+            reportOverall();
           });
           uploaded.push(photo);
           patch(item.id, { status: 'done', progress: 100 });
@@ -166,14 +173,10 @@ export function useUpload({
         }
 
         done += 1;
-        completedBytes += Math.max(item.size, 1);
-        setTransfer({
-          kind: 'upload',
-          done,
-          total,
-          percent: Math.round((completedBytes / totalBytes) * 100),
-          canceled: false,
-        });
+        // 성공·실패 상관없이 이 아이템 몫은 다 채운 것으로 칩니다 — 안 그러면
+        // 실패한 파일의 바이트가 빠져서 전체가 100%에 못 미칩니다
+        progressBytes.set(item.id, Math.max(item.size, 1));
+        reportOverall();
       };
 
       // UPLOAD_CONCURRENCY개짜리 워커 풀 — 각 워커가 큐에서 하나씩 뽑아 순서대로
