@@ -607,7 +607,9 @@
   inset: 0 auto 0 0;
   width: var(--transfer-progress, 0%);
   background: rgba(246, 109, 59, 0.18);
-  transition: width 180ms ease-out;
+  /* 폭 갱신은 useSmoothedPercent가 매 프레임 이징을 담당합니다 —
+     여기서 다시 길게 transition을 걸면 두 이징이 겹쳐 오히려 굼떠 보입니다 */
+  transition: width 60ms linear;
 }
 .dockbar__progress-label,
 .dockbar__progress .dockbar__spinner {

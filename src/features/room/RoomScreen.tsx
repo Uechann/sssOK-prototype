@@ -264,9 +264,13 @@ export function RoomScreen({
     me,
     roomCode: room.code,
     targetFolderId: activeFolderId,
-    onUploaded: (uploaded) => {
+    onPhotoUploaded: (photo) => {
       // Firebase 모드에서는 업로드가 이미 Firestore에 반영돼 구독으로 화면에 나타납니다.
-      if (!firebaseEnabled) actions.addPhotosLocal(uploaded);
+      // 로컬 모드는 여기서 하나씩 갤러리에 반영해야, 배치 전체가 끝날 때까지
+      // 기다리지 않고 사진이 하나씩 쌓이는 걸 볼 수 있습니다.
+      if (!firebaseEnabled) actions.addPhotosLocal([photo]);
+    },
+    onUploaded: (uploaded) => {
       toast(uploadedMessage(uploaded));
     },
     shouldFail: useCallback(() => {

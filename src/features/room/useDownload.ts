@@ -216,6 +216,12 @@ export function useDownload({ roomCode, onDone, onFail, shouldFail }: Options) {
         return;
       }
 
+      // 100% 상태를 잠깐 붙잡아둡니다 — 안 그러면 setTransfer(null)과
+      // 같은 틱에 배칭되어 100%가 화면에 그려지지도 못하고 사라집니다
+      if (!canceled.current) {
+        setTransfer({ kind: 'download', done: total, total, percent: 100, canceled: false });
+        await sleep(320);
+      }
       setTransfer(null);
       action('download.done', {
         mode: toPhotoLibrary ? 'photos' : mode,

@@ -22,12 +22,21 @@ interface Options {
   roomCode: string;
   /** 업로드 자동 분류 — 지금 보고 있는 폴더로 바로 담깁니다 */
   targetFolderId: string | null;
+  /** 파일 하나가 끝날 때마다 즉시 호출됩니다 — 갤러리에 하나씩 쌓이도록 */
+  onPhotoUploaded?: (photo: Photo) => void;
   onUploaded: (photos: Photo[]) => void;
   /** 실패를 강제로 만들고 싶을 때 (오프라인 · 데모 시나리오) */
   shouldFail: () => string | null;
 }
 
-export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail }: Options) {
+export function useUpload({
+  me,
+  roomCode,
+  targetFolderId,
+  onPhotoUploaded,
+  onUploaded,
+  shouldFail,
+}: Options) {
   const [items, setItems] = useState<UploadItem[]>([]);
   const [transfer, setTransfer] = useState<TransferState | null>(null);
   const [oversized, setOversized] = useState<OversizedFile[]>([]);
@@ -140,6 +149,7 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
           });
           uploaded.push(photo);
           patch(item.id, { status: 'done', progress: 100 });
+          onPhotoUploaded?.(photo);
         } catch (error) {
           const message = error instanceof Error ? error.message : '알 수 없는 오류';
           // 사유별로 남깁니다 — 영상만 실패하는지, 특정 용량에서 무너지는지 여기서 갈립니다
@@ -183,12 +193,18 @@ export function useUpload({ me, roomCode, targetFolderId, onUploaded, shouldFail
         });
       }
       setFailures(failed);
+      // 100% 상태를 잠깐 붙잡아둡니다 — 안 그러면 setTransfer(null)과
+      // 같은 틱에 배칭되어 100%가 화면에 그려지지도 못하고 사라집니다
+      if (!canceled.current) {
+        setTransfer({ kind: 'upload', done: total, total, percent: 100, canceled: false });
+        await sleep(320);
+      }
       setTransfer(null);
       setItems([]);
       running.current = false;
       return { uploaded: uploaded.length, failed: failed.length, canceled: canceled.current };
     },
-    [onUploaded, patch, shouldFail, targetFolderId, uploadOne],
+    [onPhotoUploaded, onUploaded, patch, shouldFail, targetFolderId, uploadOne],
   );
 
   /** 파일 선택 · 드래그&드롭 공통 진입점 */
