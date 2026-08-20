@@ -13,7 +13,7 @@ import type { Folder, Photo, Room, Toast } from '../types';
 import { uid } from '../lib/format';
 import { blobStore } from '../lib/idb';
 import { makeDemoRoom } from '../lib/seed';
-import { ensureAnonymousUser, firebaseEnabled } from '../lib/firebase';
+import { firebaseEnabled } from '../lib/firebase';
 import {
   addFolderRemote,
   deleteFolderRemote,
@@ -265,8 +265,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const name = localStorage.getItem(LS_NAME) ?? '';
 
       if (firebaseEnabled) {
-        const uid = await ensureAnonymousUser();
-        const id = uid ?? loadDeviceId();
+        // 익명 인증은 구글 서버 왕복이라 모바일에서 0.7초 안팎 걸리고, 그동안 화면 전체가
+        // 스피너로 묶여 있었습니다. 그런데 이 프로젝트는 익명 로그인이 켜져 있지 않아
+        // signUp이 CONFIGURATION_NOT_FOUND로 실패합니다 — 지금까지도 늘 아래 기기 ID로
+        // 폴백해 왔으니, 실패할 요청을 기다리느라 첫 화면만 늦어지고 있었던 셈입니다.
+        //
+        // 방을 읽고 쓰는 데도 인증은 필요 없습니다(firestore.rules / storage.rules 의
+        // sssok_* 규칙은 방 코드만 알면 열려 있습니다). 그래서 기다리지 않고 바로 시작합니다.
+        // 신원 값 자체는 지금까지 쓰이던 것과 같아서 기존 사용자의 방장 자격도 그대로입니다.
+        const id = loadDeviceId();
         if (alive) dispatch({ type: 'hydrate', me: { id, name }, rooms: {} });
         return;
       }
