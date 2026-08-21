@@ -244,6 +244,7 @@ export function Sheet({
   grabber = true,
   dismissible = true,
   className = '',
+  overlayClassName = '',
   children,
 }: {
   title: ReactNode;
@@ -253,6 +254,8 @@ export function Sheet({
   grabber?: boolean;
   dismissible?: boolean;
   className?: string;
+  /** 기본 z-index(40) 위로 올려야 할 때 씁니다 — 라이트박스는 60이라 그냥 두면 가려집니다 */
+  overlayClassName?: string;
   children: ReactNode;
 }) {
   const close = dismissible ? onClose : undefined;
@@ -281,7 +284,11 @@ export function Sheet({
   };
 
   return (
-    <div className="overlay overlay--bottom" onClick={close} role="presentation">
+    <div
+      className={`overlay overlay--bottom ${overlayClassName}`}
+      onClick={close}
+      role="presentation"
+    >
       <div
         ref={sheetRef}
         className={`sheet ${className}`}

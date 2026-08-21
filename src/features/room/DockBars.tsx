@@ -69,10 +69,13 @@ export function TransferBar({
   transfer,
   items,
   onCancel,
+  elevated = false,
 }: {
   transfer: TransferState;
   items: UploadItem[];
   onCancel: () => void;
+  /** 자세히 보기 위에서도 진행 상황이 보여야 할 때 — 라이트박스가 z-index 60이라 기본값이면 가려집니다 */
+  elevated?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const label = transfer.label ?? (transfer.kind === 'upload' ? '업로드 중' : '다운로드 중');
@@ -94,7 +97,11 @@ export function TransferBar({
           ))}
         </div>
       )}
-      <div className="dockbar dockbar--transfer" role="status" aria-live="polite">
+      <div
+        className={`dockbar dockbar--transfer${elevated ? ' dockbar--elevated' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
         <button
           type="button"
           className="dockbar__ratio"

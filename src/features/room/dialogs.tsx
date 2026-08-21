@@ -188,7 +188,13 @@ export function SaveToPhotosSheet({
   onClose: () => void;
 }) {
   return (
-    <Sheet title={`${count}장을 사진첩에 저장할까요?`} onClose={onClose} className="download-sheet">
+    <Sheet
+      title={`${count}장을 사진첩에 저장할까요?`}
+      onClose={onClose}
+      className="download-sheet"
+      // 자세히 보기(라이트박스, z-index 60)에서도 이 시트가 떠야 합니다
+      overlayClassName="overlay--above-lightbox"
+    >
       <p className="hint download-sheet__hint">
         다 받았어요. 아래를 누르면 공유 시트가 열려요 —
         iPhone은 <b>이미지 저장</b>, Android는 <b>사진</b> 앱을 고르면 사진첩에 담깁니다.

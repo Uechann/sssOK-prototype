@@ -521,6 +521,11 @@
   box-shadow: 0 12.42px 24.84px rgba(41, 28, 20, 0.14);
   transform: translateX(-50%);
 }
+/* 자세히 보기(라이트박스 z-index 60) 위에서도 진행 상황이 보이게 — 여기서 받기를 누르면
+   기본 z-index로는 검은 화면 뒤에 깔려 눌러도 아무 반응이 없는 것처럼 보입니다 */
+.dockbar--elevated {
+  z-index: 65;
+}
 .dockbar--transfer .dockbar__progress {
   position: absolute;
   left: 50%;

@@ -532,6 +532,7 @@ export function RoomScreen({
         <TransferBar
           transfer={transfer}
           items={upload.items}
+          elevated={lightboxIndex >= 0}
           onCancel={() => (upload.transfer ? upload.cancel() : download.cancel())}
         />
       ) : selection.count > 0 ? (

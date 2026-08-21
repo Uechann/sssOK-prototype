@@ -236,6 +236,11 @@
   background: var(--scrim);
   animation: fade-in var(--dur) var(--ease);
 }
+/* 라이트박스(z-index 60) 위에 떠야 하는 시트 — 자세히 보기에서 사진첩 저장을 누르면
+   확인 시트가 뜨는데, 기본 40으로 두면 검은 화면 뒤에 깔려 아무 일도 없는 것처럼 보입니다 */
+.overlay--above-lightbox {
+  z-index: 70;
+}
 .overlay--center {
   align-items: center;
   justify-content: center;
