@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as amplitude from "@amplitude/unified";
 import type { ExpiryHours, Room } from "./types";
 import { useRouter } from "./lib/router";
@@ -79,6 +79,26 @@ export function App() {
     setRoom(currentCode ?? null);
     if (!currentRoom) return;
     setRole(currentRoom.hostId === me.id ? "host" : "guest");
+  }, [currentCode, currentRoom, me.id]);
+
+  /** ROOM_JOINED는 원래 `/join` 코드 입력 폼에서만 찍혔습니다. 하지만 실제 게스트는
+   * 초대 링크(`#/r/CODE`)로 room 라우트에 곧바로 들어와 그 폼을 거치지 않으므로
+   * 대부분의 실제 입장이 기록되지 않고 있었습니다. 여기서 세션당 방 하나에 한 번,
+   * 게스트로 확인된 시점에 보완해서 찍습니다(코드 입력으로 들어온 경우는
+   * joinedRooms에 이미 표시돼 있어 중복 발생하지 않습니다).
+   * `currentRoom` effect가 role을 정하기 전까지는 실행하지 않도록 role도 함께 확인합니다. */
+  const joinedRooms = useRef(new Set<string>());
+  useEffect(() => {
+    if (!currentCode || !currentRoom) return;
+    if (currentRoom.hostId === me.id) return;
+    if (currentRoom.deletedAt || currentRoom.expiresAt <= Date.now()) return;
+    if (joinedRooms.current.has(currentCode)) return;
+    joinedRooms.current.add(currentCode);
+    amplitude.track(AMPLITUDE_EVENTS.ROOM_JOINED, {
+      has_passcode: Boolean(currentRoom.passcode),
+      entry_src: getEntrySrc(),
+      via: "link",
+    });
   }, [currentCode, currentRoom, me.id]);
 
   const isExpired = useCallback(
@@ -243,9 +263,11 @@ export function App() {
                 return "입장 암호가 올바르지 않아요";
               }
               action("join.ok");
+              joinedRooms.current.add(code);
               amplitude.track(AMPLITUDE_EVENTS.ROOM_JOINED, {
                 has_passcode: Boolean(room.passcode),
                 entry_src: getEntrySrc(),
+                via: "code",
               });
               navigate({ name: "room", code });
               return null;
