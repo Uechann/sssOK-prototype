@@ -74,6 +74,8 @@ interface PhotoDoc {
   place?: string;
   /** 삭제 시 Storage 객체를 함께 지우기 위한 내부 필드 — 앱 도메인 타입에는 노출하지 않습니다. */
   storagePath?: string;
+  /** 격자 타일용 썸네일 객체 경로 (이미지만) */
+  thumbPath?: string;
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -235,8 +237,10 @@ interface UploadInput {
   name: string;
   kind: 'image' | 'video';
   blob: Blob;
-  /** 영상 썸네일 — data: URL 그대로 문서에 저장합니다(이미지는 빈 문자열 → src로 대체) */
+  /** 영상 썸네일 — data: URL 그대로 문서에 저장합니다(이미지는 thumb를 Storage에 따로 올립니다) */
   poster: string;
+  /** 이미지 격자 타일용 축소본 — 원본과 나란히 Storage에 올립니다 */
+  thumb?: Blob;
   width: number;
   height: number;
   originalSize: number;
@@ -272,11 +276,26 @@ function toPhoto(id: string, data: PhotoDoc): Photo {
 // resumable 업로드로 보냅니다. 그 아래는 세션 핸드셰이크 없이 한 번에 보냅니다.
 const RESUMABLE_THRESHOLD = 5 * 1024 * 1024;
 
+/** Storage 경로에 photoId가 들어가 같은 주소가 다시 쓰이지 않으므로 영구 캐시해도 안전합니다.
+ * 이게 없으면 방을 다시 열 때마다 썸네일을 전부 다시 받습니다. */
+const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+
+/** 한 번의 PUT으로 끝내는 업로드. 세션 핸드셰이크가 없어 작은 파일에 훨씬 빠릅니다. */
+async function putOnce(blob: Blob, path: string): Promise<string> {
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, blob, {
+    contentType: blob.type || undefined,
+    cacheControl: IMMUTABLE_CACHE,
+  });
+  return getDownloadURL(storageRef);
+}
+
 /** 세션 생성→전송→확인을 거치는 재개 가능 업로드. 큰 파일에 씁니다. */
 function uploadResumable(input: UploadInput, path: string): Promise<string> {
   const storageRef = ref(storage, path);
   const task = uploadBytesResumable(storageRef, input.blob, {
     contentType: input.blob.type || undefined,
+    cacheControl: IMMUTABLE_CACHE,
   });
   return new Promise((resolve, reject) => {
     task.on(
@@ -292,29 +311,36 @@ function uploadResumable(input: UploadInput, path: string): Promise<string> {
   });
 }
 
-/** 한 번의 PUT으로 끝내는 업로드. 세션 핸드셰이크가 없어 작은 파일에 훨씬 빠릅니다. */
-async function uploadSingle(input: UploadInput, path: string): Promise<string> {
-  const storageRef = ref(storage, path);
-  input.onProgress?.(50);
-  await uploadBytes(storageRef, input.blob, { contentType: input.blob.type || undefined });
-  return getDownloadURL(storageRef);
-}
-
 /** 이미지 — 압축을 거쳐 대부분 작으므로 단일 PUT으로 올립니다. 압축이 안 통하는
  * 큰 GIF 등만 resumable로 보냅니다.
  * Storage 버킷 CORS 설정이 안 돼 있으면 실패합니다(README 참고). */
 async function uploadImageToStorage(input: UploadInput): Promise<Photo> {
   const path = `sssok/${input.code}/${input.id}/${input.name}`;
-  const src =
+  // 파일 이름이 실제로 preview.jpg인 사진이 들어와도 본문 경로와 겹치지 않도록 한 단 내립니다.
+  // File.name에는 '/'가 들어갈 수 없어서 이 경로는 사용자 파일과 절대 부딪히지 않습니다.
+  const thumbPath = input.thumb ? `sssok/${input.code}/${input.id}/thumb/preview.jpg` : undefined;
+  // 썸네일은 수십 KB라 원본과 동시에 보내도 전체 시간이 늘지 않습니다.
+  const [src, poster] = await Promise.all([
     input.blob.size > RESUMABLE_THRESHOLD
-      ? await uploadResumable(input, path)
-      : await uploadSingle(input, path);
+      ? uploadResumable(input, path)
+      : (async () => {
+          input.onProgress?.(50);
+          return putOnce(input.blob, path);
+        })(),
+    // 썸네일은 있으면 좋은 부가물입니다. 실패해도(예: Storage 규칙이 아직 옛날 것이라
+    // thumb/ 경로가 막힌 경우) 원본 저장까지 같이 죽이지 않고 poster를 비워둡니다.
+    // 그러면 격자는 toPhoto의 `poster || src` 폴백으로 원본을 보게 됩니다.
+    input.thumb && thumbPath
+      ? putOnce(input.thumb, thumbPath).catch(() => '')
+      : Promise.resolve(''),
+  ]);
   input.onProgress?.(100);
   const data: PhotoDoc = {
     name: input.name,
     kind: 'image',
     src,
-    poster: '',
+    // 썸네일이 있으면 격자가 이걸 봅니다. 없으면 빈 문자열 → toPhoto가 src로 폴백합니다.
+    poster,
     width: input.width,
     height: input.height,
     size: input.blob.size,
@@ -324,6 +350,8 @@ async function uploadImageToStorage(input: UploadInput): Promise<Photo> {
     createdAt: Date.now(),
     folderIds: input.folderIds,
     storagePath: path,
+    // Firestore는 undefined 필드를 거부하므로 값이 있을 때만 넣습니다
+    ...(poster && thumbPath ? { thumbPath } : {}),
   };
   await setDoc(photoRef(input.code, input.id), data);
   return toPhoto(input.id, data);
@@ -363,9 +391,12 @@ export async function removePhotosRemote(code: string, ids: string[]): Promise<v
   for (const group of chunk(ids, CHUNK)) {
     const snaps = await getDocs(query(photosCol(code), where(documentId(), 'in', group)));
     await Promise.all(
-      snaps.docs.map((snap) => {
-        const path = (snap.data() as PhotoDoc).storagePath;
-        return path ? deleteObject(ref(storage, path)).catch(() => undefined) : Promise.resolve();
+      snaps.docs.flatMap((snap) => {
+        const data = snap.data() as PhotoDoc;
+        // 본문과 썸네일이 각각 별도 객체라 둘 다 지워야 합니다
+        return [data.storagePath, data.thumbPath]
+          .filter((path): path is string => Boolean(path))
+          .map((path) => deleteObject(ref(storage, path)).catch(() => undefined));
       }),
     );
     const batch = writeBatch(db);

@@ -7,8 +7,10 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // sssok/{code}/{photoId}/{filename} 경로만 열어둡니다
-    match /sssok/{code}/{photoId}/{fileName} {
+    // sssok/{code}/{photoId}/ 아래만 열어둡니다.
+    // 원본은 .../{파일명}, 격자용 썸네일은 .../thumb/preview.jpg 로 한 단 더 들어가므로
+    // 단일 세그먼트({fileName})가 아니라 재귀 와일드카드여야 썸네일이 막히지 않습니다.
+    match /sssok/{code}/{photoId}/{fileName=**} {
       allow read: if true;
       allow write: if true;
     }
