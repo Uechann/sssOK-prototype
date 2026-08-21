@@ -152,7 +152,7 @@ export function DownloadSheet({
           </span>
           <span className="option__body">
             <span className="option__name">사진첩에 저장</span>
-            <span className="option__sub">공유 시트로 바로 저장해요</span>
+            <span className="option__sub">받은 뒤 공유 시트로 저장해요</span>
           </span>
           {toPhotos && (
             <span className="option__mark">
@@ -167,6 +167,34 @@ export function DownloadSheet({
       </p>
       <Button className="download-sheet__button" onClick={() => onConfirm(mode, toPhotos)}>
         다운로드
+      </Button>
+    </Sheet>
+  );
+}
+
+/* 06-2 · 사진첩 저장 확인 — 공유 시트를 여는 마지막 한 번의 탭
+ *
+ * 사진을 다 받은 뒤 곧바로 navigator.share를 부르면 안 됩니다. 그건 사용자가 방금
+ * 누른 직후에만 열리는데, 받는 동안 그 자격이 만료되기 때문입니다(Android는
+ * NotAllowedError, iOS는 시트가 안 뜨거나 저장 실패). 이 버튼의 onClick에서 부르면
+ * 항상 유효합니다. */
+export function SaveToPhotosSheet({
+  count,
+  onSave,
+  onClose,
+}: {
+  count: number;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet title={`${count}장을 사진첩에 저장할까요?`} onClose={onClose} className="download-sheet">
+      <p className="hint download-sheet__hint">
+        다 받았어요. 아래를 누르면 공유 시트가 열려요 —
+        iPhone은 <b>이미지 저장</b>, Android는 <b>사진</b> 앱을 고르면 사진첩에 담깁니다.
+      </p>
+      <Button className="download-sheet__button" onClick={onSave}>
+        사진첩에 저장
       </Button>
     </Sheet>
   );

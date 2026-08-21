@@ -36,6 +36,7 @@ import {
   MoveSheet,
   NameSheet,
   QrModal,
+  SaveToPhotosSheet,
   SizeLimitModal,
   UploadFailModal,
 } from './dialogs';
@@ -326,9 +327,12 @@ export function RoomScreen({
   };
 
   const downloadOne = (photo: Photo) => {
-    lastDownload.current = { photos: [photo], mode: 'each', toPhotos: false };
-    action('download.start', { mode: 'each', count: 1, toPhotos: false, from: 'lightbox' });
-    void download.start([photo], 'each', false);
+    // 모바일에서 앵커 다운로드는 사진첩이 아니라 파일 앱으로 들어갑니다.
+    // 공유 시트를 쓸 수 있으면 그쪽으로 보내야 "사진첩에 저장"이 됩니다.
+    const toPhotos = !desktop && canSaveToPhotos([photo]);
+    lastDownload.current = { photos: [photo], mode: 'each', toPhotos };
+    action('download.start', { mode: 'each', count: 1, toPhotos, from: 'lightbox' });
+    void download.start([photo], 'each', toPhotos);
   };
 
   const removePhotos = (ids: string[], from: 'selection' | 'lightbox' = 'selection') => {
@@ -642,6 +646,14 @@ export function RoomScreen({
           canSaveToPhotos={!desktop && canSaveToPhotos(selectedPhotos)}
           onClose={() => setOverlay(null)}
           onConfirm={startDownload}
+        />
+      )}
+
+      {download.pendingShare && (
+        <SaveToPhotosSheet
+          count={download.pendingShare.count}
+          onSave={() => void download.shareToPhotos()}
+          onClose={download.dismissShare}
         />
       )}
 
